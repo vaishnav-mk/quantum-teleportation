@@ -1,10 +1,17 @@
+import quantum_communication.utils as utils
 from qiskit import QuantumCircuit, BasicAer, execute
-import time
 from tqdm import tqdm
+import time
 
 
 class QuantumDataTeleporter:
-    def __init__(self, separator=",", shots=1, file_path=None, text_to_send=None):
+    def __init__(
+        self,
+        separator: str = ",",
+        shots: int = 1,
+        file_path: str = None,
+        text_to_send: str = None,
+    ) -> None:
         """
         Initializes the QuantumDataTeleporter object.
 
@@ -17,74 +24,15 @@ class QuantumDataTeleporter:
         if not file_path and not text_to_send:
             raise ValueError("Either file_path or text_to_send must be provided.")
         self.shots = shots
-        self.separator = self.convert_text_to_binary(separator)
+        self.separator = utils.convert_text_to_binary(separator)
         self.text_to_send = (
-            self.text_from_file(file_path)
-            if file_path
-            else text_to_send
+            utils.text_from_file(file_path) if file_path else text_to_send
         )
-        self.binary_text = self.convert_text_to_binary(",".join(self.text_to_send))
+        self.binary_text = utils.convert_text_to_binary(",".join(self.text_to_send))
         self.circuits = [QuantumCircuit(3, 3) for _ in range(len(self.binary_text))]
         self.create_circuits()
 
-    def text_from_file(self, file_path):
-        """
-        Reads text data from a file.
-
-        Args:
-            file_path (str): Path to the file.
-
-        Returns:
-            str: Text content of the file.
-        """
-        try:
-            with open(file_path, "r") as file:
-                text_content = file.read()
-                return text_content
-        except FileNotFoundError:
-            print(f"File '{file_path}' not found.")
-            return None
-
-    def convert_text_to_binary(self, text):
-        """
-        Converts text to binary.
-
-        Args:
-            text (str): Input text.
-
-        Returns:
-            str: Binary representation of the input text.
-        """
-        binary_result = "".join(format(ord(char), "08b") for char in text)
-        return binary_result
-
-    def convert_binary_to_text(self, binary_str):
-        """
-        Converts binary to text.
-
-        Args:
-            binary_str (str): Binary input.
-
-        Returns:
-            str: Text representation of the binary input.
-        """
-        binary_chunks = [binary_str[i : i + 8] for i in range(0, len(binary_str), 8)]
-        text = "".join(chr(int(chunk, 2)) for chunk in binary_chunks)
-        return text
-
-    def bit_flipper(self, bits):
-        """
-        Flips bits in the input.
-
-        Args:
-            bits (str): Input bit string.
-
-        Returns:
-            str: Flipped bit string.
-        """
-        return "".join(["1" if x == "0" else "0" for x in bits])
-
-    def handle_flipped_results(self, flipped_results):
+    def handle_flipped_results(self, flipped_results: list[str]) -> list[str]:
         """
         Handles flipped results by merging and splitting binary chunks.
 
@@ -105,7 +53,7 @@ class QuantumDataTeleporter:
 
         return binary_chunks
 
-    def create_circuits(self):
+    def create_circuits(self) -> None:
         """
         Creates quantum circuits based on the binary text.
         """
@@ -123,7 +71,7 @@ class QuantumDataTeleporter:
             self.circuits[i].cz(0, 2)
             self.circuits[i].measure([2], [2])
 
-    def run_simulation(self):
+    def run_simulation(self) -> tuple[str, bool]:
         """
         Runs the quantum simulation.
 
@@ -136,12 +84,14 @@ class QuantumDataTeleporter:
         print(f"Processing {total_characters} characters...")
         flipped_results = []
 
-        with tqdm(total=total_characters, desc="Processing characters", unit="char") as pbar:
+        with tqdm(
+            total=total_characters, desc="Processing characters", unit="char"
+        ) as pbar:
             simulator = BasicAer.get_backend("qasm_simulator")
 
             for circuit in self.circuits:
                 result = execute(circuit, backend=simulator, shots=self.shots).result()
-                flipped_result = self.bit_flipper(list(result.get_counts())[0][0])
+                flipped_result = utils.bit_flipper(list(result.get_counts())[0][0])
                 flipped_results.append(flipped_result)
                 pbar.update(1)
 
@@ -149,26 +99,7 @@ class QuantumDataTeleporter:
         print(f"\nTime taken: {end_time - start_time} seconds.")
         binary_chunks = self.handle_flipped_results(flipped_results)
         converted_chunks = "".join(
-            [self.convert_binary_to_text(chunk) for chunk in binary_chunks]
+            [utils.convert_binary_to_text(chunk) for chunk in binary_chunks]
         )
 
         return converted_chunks, converted_chunks == self.text_to_send
-
-
-# Example usage with a file
-
-file_path = "text.txt"
-quantum_communication = QuantumDataTeleporter(file_path=file_path, shots=1)
-received_data, is_data_match = quantum_communication.run_simulation()
-
-print(f"Received Data: {received_data}")
-print(f"Sent Data == Received Data: {is_data_match}")
-
-# Example usage with a string
-
-text = "Hello, World!"
-quantum_communication = QuantumDataTeleporter(text_to_send=text, shots=1)
-received_data, is_data_match = quantum_communication.run_simulation()
-
-print(f"Received Data: {received_data}")
-print(f"Sent Data == Received Data: {is_data_match}")
