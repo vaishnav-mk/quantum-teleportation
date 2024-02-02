@@ -70,7 +70,6 @@ class QuantumDataTeleporter:
             self.circuits[i].cx(1, 2)
             self.circuits[i].cz(0, 2)
             self.circuits[i].measure([2], [2])
-
     def run_simulation(self) -> tuple[str, bool]:
         """
         Runs the quantum simulation.
@@ -81,7 +80,7 @@ class QuantumDataTeleporter:
         total_characters = len(self.circuits)
         start_time = time.time()
 
-        print(f"Processing {total_characters} characters...")
+        print(f"Processing {self.text_to_send} ({total_characters} bits) characters...")
         flipped_results = []
 
         with tqdm(

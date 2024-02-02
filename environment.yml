@@ -1,0 +1,9 @@
+name: quantum-env 
+channels:
+  - defaults
+dependencies:
+  - python=3.11.5
+  - pip:
+      - qiskit==0.45.2
+      - qiskit_terra==0.45.2
+      - tqdm==4.65.0
