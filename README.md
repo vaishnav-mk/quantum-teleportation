@@ -156,3 +156,6 @@ circuit.measure([2], [2])
 ```
 The final measurement is performed on qubit 2, and the result is stored in classical bit 2. This measurement completes the teleportation.
 
+### References
+* [Teleporting an unknown quantum state via dual classical and Einstein-Podolsky-Rosen channels](https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.70.1895)
+* [A Review and Prospects of Quantum Teleportation](https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=9ecf3934b499cd4dde5d28c3a7520be62977095b)
