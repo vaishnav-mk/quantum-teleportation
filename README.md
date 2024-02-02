@@ -54,6 +54,20 @@ The class is initialized with the following parameters:
 The system utilizes the principles of superposition and entanglement in quantum mechanics. Superposition allows a qubit to exist in multiple states simultaneously, and entanglement establishes correlations between qubits, even when separated by large distances.
 
 ### Quantum Gates and Circuits
+#### Controlled-X gate (CX) on Qubit 1
+```
+     ┌───┐ ░            ░      ┌───┐ ░ ┌─┐              
+q_0: ┤ X ├─░────────────░───■──┤ H ├─░─┤M├─────────■────
+     └───┘ ░ ┌───┐      ░ ┌─┴─┐└───┘ ░ └╥┘┌─┐      │    
+q_1: ──────░─┤ H ├──■───░─┤ X ├──────░──╫─┤M├──■───┼────
+           ░ └───┘┌─┴─┐ ░ └───┘      ░  ║ └╥┘┌─┴─┐ │ ┌─┐
+q_2: ──────░──────┤ X ├─░────────────░──╫──╫─┤ X ├─■─┤M├
+           ░      └───┘ ░            ░  ║  ║ └───┘   └╥┘
+c: 3/═══════════════════════════════════╩══╩══════════╩═
+                                        0  1          2
+```
+
+![0](https://github.com/vaishnav-mk/quantum-teleportation/assets/84540554/01403cc1-864b-4770-be45-bba8fdfde9ce)
 
 The quantum circuits created by the Quantum Data Teleporter employ various quantum gates, such as the Hadamard gate (H), controlled-X gate (CX), controlled-Z gate (CZ), and Pauli-X gate (X). These gates manipulate qubits to perform encoding, transmission, and decoding operations.
 
@@ -65,10 +79,39 @@ The protocol that allows the transfer of quantum information from one qubit to a
 4. The sender measures the qubit and the entangled qubit and sends the measurement results to the receiver.
 5. The receiver applies the appropriate gates to the entangled qubit based on the measurement results to obtain the original qubit.
 
+#### Controlled-X gate (CX) on Qubit 1
+```
+           ░            ░      ┌───┐ ░ ┌─┐              
+q_0: ──────░────────────░───■──┤ H ├─░─┤M├─────────■────
+     ┌───┐ ░ ┌───┐      ░ ┌─┴─┐└───┘ ░ └╥┘┌─┐      │    
+q_1: ┤ X ├─░─┤ H ├──■───░─┤ X ├──────░──╫─┤M├──■───┼────
+     └───┘ ░ └───┘┌─┴─┐ ░ └───┘      ░  ║ └╥┘┌─┴─┐ │ ┌─┐
+q_2: ──────░──────┤ X ├─░────────────░──╫──╫─┤ X ├─■─┤M├
+           ░      └───┘ ░            ░  ║  ║ └───┘   └╥┘
+c: 3/═══════════════════════════════════╩══╩══════════╩═
+                                        0  1          2
+```
+
+![1](https://github.com/vaishnav-mk/quantum-teleportation/assets/84540554/23172977-0349-4c08-9e25-b7122e4f19b8)
+
 ```python
 circuit.x(1 if self.binary_text[i] == "1" else 0)
 ```
 This gate (`X` gate) flips the qubit from the |0⟩ state to the |1⟩ state if the bit is 1.
+
+* If the X gate is on Qubit 0, the teleported data on `Qubit 0` becomes `1`
+```
+{'100': 252, '111': 259, '110': 263, '101': 250}
+```
+
+![image](https://github.com/vaishnav-mk/quantum-teleportation/assets/84540554/16392e5d-f4f4-4e7c-812c-13d17e07fc1e)
+
+* The same applies to Qubit 1 as well; if the X gate is on Qubit 1, the probability of `0`, increases
+```
+{'000': 255, '001': 304, '010': 238, '011': 227}
+```
+![image](https://github.com/vaishnav-mk/quantum-teleportation/assets/84540554/026aa739-2221-44d7-8999-4bc7c5f38629)
+
 
 ```python
 circuit.barrier()
