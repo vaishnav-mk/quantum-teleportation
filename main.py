@@ -5,6 +5,15 @@ from tqdm import tqdm
 
 class QuantumDataTeleporter:
     def __init__(self, separator=",", shots=1, file_path=None, text_to_send=None):
+        """
+        Initializes the QuantumDataTeleporter object.
+
+        Args:
+            separator (str): Separator used for binary encoding.
+            shots (int): Number of shots for the quantum simulation.
+            file_path (str): Path to the file for reading text data.
+            text_to_send (str): Text data to be sent if file_path is not provided.
+        """
         if not file_path and not text_to_send:
             raise ValueError("Either file_path or text_to_send must be provided.")
         self.shots = shots
@@ -19,6 +28,15 @@ class QuantumDataTeleporter:
         self.create_circuits()
 
     def text_from_file(self, file_path):
+        """
+        Reads text data from a file.
+
+        Args:
+            file_path (str): Path to the file.
+
+        Returns:
+            str: Text content of the file.
+        """
         try:
             with open(file_path, "r") as file:
                 text_content = file.read()
@@ -28,18 +46,54 @@ class QuantumDataTeleporter:
             return None
 
     def convert_text_to_binary(self, text):
+        """
+        Converts text to binary.
+
+        Args:
+            text (str): Input text.
+
+        Returns:
+            str: Binary representation of the input text.
+        """
         binary_result = "".join(format(ord(char), "08b") for char in text)
         return binary_result
 
     def convert_binary_to_text(self, binary_str):
+        """
+        Converts binary to text.
+
+        Args:
+            binary_str (str): Binary input.
+
+        Returns:
+            str: Text representation of the binary input.
+        """
         binary_chunks = [binary_str[i : i + 8] for i in range(0, len(binary_str), 8)]
         text = "".join(chr(int(chunk, 2)) for chunk in binary_chunks)
         return text
 
     def bit_flipper(self, bits):
+        """
+        Flips bits in the input.
+
+        Args:
+            bits (str): Input bit string.
+
+        Returns:
+            str: Flipped bit string.
+        """
         return "".join(["1" if x == "0" else "0" for x in bits])
 
     def handle_flipped_results(self, flipped_results):
+        """
+        Handles flipped results by merging and splitting binary chunks.
+
+        Args:
+            flipped_results (list): List of flipped results.
+
+        Returns:
+            list: Binary chunks after processing.
+        """
         merged_binary = "".join(flipped_results)
         binary_chunks = merged_binary.split(self.separator)
 
@@ -52,6 +106,9 @@ class QuantumDataTeleporter:
         return binary_chunks
 
     def create_circuits(self):
+        """
+        Creates quantum circuits based on the binary text.
+        """
         for i in range(len(self.binary_text)):
             self.circuits[i].x(1 if self.binary_text[i] == "1" else 0)
             self.circuits[i].barrier()
@@ -67,6 +124,12 @@ class QuantumDataTeleporter:
             self.circuits[i].measure([2], [2])
 
     def run_simulation(self):
+        """
+        Runs the quantum simulation.
+
+        Returns:
+            tuple: Tuple containing received data and a boolean indicating data match.
+        """
         total_characters = len(self.circuits)
         start_time = time.time()
 
