@@ -18,6 +18,31 @@ $ conda env create -f environment.yml
 $ conda activate panorama
 ```
 
+3. Run the `communication.py` script
+
+```bash
+$ python communication.py
+```
+
+This should run the Quantum Data Teleportation simulation and display the results as shown below.
+
+```bash
+*** Example usage with a file ***
+Processing 1 characters (8 bits)...
+Processing characters: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 8/8 [00:02<00:00,  3.74char/s]
+
+Time taken: 2.143385171890259 seconds.
+Received Data: A
+Sent Data == Received Data: True
+
+*** Example usage with a string ***
+Processing 13 characters (200 bits)...
+Processing characters: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 200/200 [00:01<00:00, 180.10char/s]
+
+Time taken: 1.112023115158081 seconds.
+Received Data: Hello, World!
+```
+
 ## Usage
 ### With a File
 ```python
