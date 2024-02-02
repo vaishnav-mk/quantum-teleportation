@@ -1,4 +1,4 @@
-import quantum_communication.utils as utils
+import quantum_teleportation.utils as utils
 from qiskit import QuantumCircuit, BasicAer, execute
 from tqdm import tqdm
 import time
@@ -80,7 +80,7 @@ class QuantumDataTeleporter:
         total_characters = len(self.circuits)
         start_time = time.time()
 
-        print(f"Processing {self.text_to_send} ({total_characters} bits) characters...")
+        print(f"Processing {len(self.text_to_send)} characters ({total_characters} bits)...")
         flipped_results = []
 
         with tqdm(
