@@ -1,4 +1,4 @@
-import quantum_communication.quantum_data_teleporter as qc
+import quantum_teleportation.quantum_data_teleporter as qc
 
 def main():
     """
