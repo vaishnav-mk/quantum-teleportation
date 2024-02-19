@@ -70,6 +70,7 @@ class QuantumDataTeleporter:
             self.circuits[i].cx(1, 2)
             self.circuits[i].cz(0, 2)
             self.circuits[i].measure([2], [2])
+            
     def run_simulation(self) -> tuple[str, bool]:
         """
         Runs the quantum simulation.
