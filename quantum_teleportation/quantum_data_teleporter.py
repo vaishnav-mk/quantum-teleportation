@@ -32,11 +32,12 @@ class QuantumDataTeleporter:
         if not file_path and not text_to_send:
             raise ValueError("Either file_path or text_to_send must be provided.")
         self.shots = shots
-        self.separator = utils.convert_text_to_binary(separator)
         self.text_to_send = (
             utils.text_from_file(file_path) if file_path else text_to_send
         )
-        self.binary_text = utils.convert_text_to_binary(self.text_to_send)
+        self.binary_text, self.text_to_send = utils.convert_text_to_binary_with_filter(
+            self.text_to_send
+        )
         self.circuits = []
         for _ in range(len(self.binary_text)):
             quantum_circuit = QuantumRegister(6, "quantum_bit")
@@ -60,15 +61,14 @@ class QuantumDataTeleporter:
         Returns:
             int: Number of shots required for the simulation.
         """
-        base_shots = 512
-        max_shots = 4096
+        base_shots = 0
+        max_shots = 5
         additional_shots = min(circuit_complexity * 5, max_shots - base_shots)
         if confidence_level > 0.90:
             additional_shots = min(circuit_complexity * 1.5, max_shots - base_shots)
 
         # print(f"Base shots: {base_shots}, Additional shots: {additional_shots}")
         return base_shots + additional_shots
-
 
     def handle_flipped_results(self, flipped_results: list[str]) -> list[str]:
         """Handles flipped results by merging and splitting binary chunks into bytes.
@@ -151,17 +151,17 @@ class QuantumDataTeleporter:
             sim_vigo = AerSimulator.from_backend(device_backend)
             counts_noise = {}
 
+            self.shots = self.calculate_adaptive_shots(len(self.circuits[0].data))
+            print(f"shots: {self.shots}")
+
             for i, circuit in enumerate(self.circuits):
-                # result = sim_vigo.run(circuit, shots=self.shots).result()
-                result = execute(circuit, backend=simulator, shots=self.shots).result()
+                result = sim_vigo.run(circuit, shots=self.shots).result()
+                # result = execute(circuit, backend=simulator, shots=self.shots).result()
                 counts_noise.update(result.get_counts())
 
                 res = max(result.get_counts(), key=result.get_counts().get)
 
-                circuit_complexity = len(circuit.data)
-                # self.shots = self.calculate_adaptive_shots(circuit_complexity)
-                # print(f"{i}: shots: {self.shots}")
-                result = execute(circuit, backend=simulator, shots=2).result()
+                result = execute(circuit, backend=simulator, shots=self.shots).result()
                 flipped_result = utils.bit_flipper(res[0])
                 flipped_results.append(flipped_result)
                 pbar.update(1)
@@ -171,8 +171,8 @@ class QuantumDataTeleporter:
 
         end_time = time.time()
         print(f"\nTime taken: {end_time - start_time} seconds.")
-        print("Flipped results:", flipped_results)
         binary_chunks = self.handle_flipped_results(flipped_results)
+        print("Binary chunks:", binary_chunks)
         converted_chunks = "".join(
             [utils.convert_binary_to_text(chunk) for chunk in binary_chunks]
         )
