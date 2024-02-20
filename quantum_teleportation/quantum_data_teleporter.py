@@ -47,7 +47,9 @@ class QuantumDataTeleporter:
         self.create_circuits()
 
     # Adaptive shots comes here
-    def calculate_adaptive_shots(self, circuit_complexity: int, confidence_level: float = 0.90) -> int:
+    def calculate_adaptive_shots(
+        self, circuit_complexity: int, confidence_level: float = 0.90
+    ) -> int:
         """
         Calculates the number of shots required based on the circuit complexity and confidence level.
 
@@ -60,9 +62,9 @@ class QuantumDataTeleporter:
         """
         base_shots = 512
         max_shots = 4096
-        additional_shots = min(circuit_complexity * 10, max_shots - base_shots)
+        additional_shots = min(circuit_complexity * 5, max_shots - base_shots)
         if confidence_level > 0.90:
-            additional_shots = min(circuit_complexity * 2, max_shots - base_shots)
+            additional_shots = min(circuit_complexity * 1.5, max_shots - base_shots)
         return base_shots + additional_shots
 
     def handle_flipped_results(self, flipped_results: list[str]) -> list[str]:
@@ -145,7 +147,7 @@ class QuantumDataTeleporter:
         ) as pbar:
             simulator = BasicAer.get_backend("qasm_simulator")
             sim_vigo = AerSimulator.from_backend(device_backend)
-
+            print(f"shots: {self.shots}")
             counts_noise = {}
 
             for i, circuit in enumerate(self.circuits):
@@ -157,7 +159,7 @@ class QuantumDataTeleporter:
 
                 circuit_complexity = len(circuit.data)
                 self.shots = self.calculate_adaptive_shots(circuit_complexity)
-                result = execute(circuit, backend = simulator, shots = self.shots).result()
+                result = execute(circuit, backend=simulator, shots=self.shots).result()
                 flipped_result = utils.bit_flipper(res[0])
                 flipped_results.append(flipped_result)
                 pbar.update(1)
