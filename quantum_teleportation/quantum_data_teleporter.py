@@ -1,5 +1,6 @@
 import quantum_teleportation.utils as utils
 from qiskit import QuantumCircuit, BasicAer, execute, QuantumRegister, ClassicalRegister
+from qiskit_aer.noise import NoiseModel
 from tqdm import tqdm
 import time
 
@@ -15,10 +16,10 @@ import matplotlib.pyplot as plt
 class QuantumDataTeleporter:
     def __init__(
         self,
-        separator: str = ",",
         shots: int = 1,
         file_path: str = None,
         text_to_send: str = None,
+        noise_model=False,
     ) -> None:
         """
         Initializes the QuantumDataTeleporter object.
@@ -35,21 +36,19 @@ class QuantumDataTeleporter:
         self.text_to_send = (
             utils.text_from_file(file_path) if file_path else text_to_send
         )
-        self.binary_text, self.text_to_send = utils.convert_text_to_binary_with_filter(
-            self.text_to_send
-        )
+        self.binary_text = utils.convert_text_to_binary(self.text_to_send)
         self.circuits = []
-        for _ in range(len(self.binary_text)):
-            quantum_circuit = QuantumRegister(6, "quantum_bit")
-            classical_register = ClassicalRegister(6, "classical_bit")
-            circuit = QuantumCircuit(quantum_circuit, classical_register)
-            self.circuits.append(circuit)
-        # self.circuits = [QuantumCircuit(6, 6) for _ in range(len(self.binary_text))]
+        self.noise_model = noise_model
+
+        self.circuits = [QuantumCircuit(6, 6) for _ in range(len(self.binary_text))]
         self.create_circuits()
 
-    # Adaptive shots comes here
     def calculate_adaptive_shots(
-        self, circuit_complexity: int, confidence_level: float = 0.90
+        self,
+        circuit_complexity: int,
+        confidence_level: float = 0.90,
+        base_shots: int = 0,
+        max_shots: int = 5,
     ) -> int:
         """
         Calculates the number of shots required based on the circuit complexity and confidence level.
@@ -57,12 +56,12 @@ class QuantumDataTeleporter:
         Args:
             circuit_complexity (int): Complexity of the quantum circuit.
             confidence_level (float): Confidence level for the simulation.
+            base_shots (int): Base number of shots for the simulation.
+            max_shots (int): Maximum number of shots for the simulation.
 
         Returns:
             int: Number of shots required for the simulation.
         """
-        base_shots = 0
-        max_shots = 5
         additional_shots = min(circuit_complexity * 5, max_shots - base_shots)
         if confidence_level > 0.90:
             additional_shots = min(circuit_complexity * 1.5, max_shots - base_shots)
@@ -133,48 +132,61 @@ class QuantumDataTeleporter:
         """
         Runs the quantum simulation.
 
+        Args:
+            noise_model (NoiseModel, optional): The noise model to apply to the simulation. Defaults to None.
+
         Returns:
             tuple: Tuple containing received data and a boolean indicating data match.
         """
         total_characters = len(self.circuits)
         start_time = time.time()
 
+        self.shots = self.calculate_adaptive_shots(
+            len(self.circuits[0] if self.circuits else 0)
+        )
+
         print(
-            f"Processing {len(self.text_to_send)} characters ({total_characters} bits)..."
+            f"Processing {len(self.text_to_send)} characters ({total_characters} bits)... with {self.shots} shots. | Noise Model: {self.noise_model}"
         )
         flipped_results = []
 
         with tqdm(
             total=total_characters, desc="Processing characters", unit="char"
         ) as pbar:
-            simulator = BasicAer.get_backend("qasm_simulator")
-            sim_vigo = AerSimulator.from_backend(device_backend)
-            counts_noise = {}
+            simulator = None
+            if self.noise_model:
+                simulator = AerSimulator.from_backend(device_backend)
+            else:
+                simulator = BasicAer.get_backend("qasm_simulator")
 
-            self.shots = self.calculate_adaptive_shots(len(self.circuits[0].data))
-            print(f"shots: {self.shots}")
-
-            for i, circuit in enumerate(self.circuits):
-                result = sim_vigo.run(circuit, shots=self.shots).result()
-                # result = execute(circuit, backend=simulator, shots=self.shots).result()
-                counts_noise.update(result.get_counts())
+            for circuit in self.circuits:
+                if self.noise_model:
+                    result = simulator.run(circuit).result()
+                else:
+                    result = execute(circuit, backend=simulator, shots=1).result()
 
                 res = max(result.get_counts(), key=result.get_counts().get)
 
-                result = execute(circuit, backend=simulator, shots=self.shots).result()
                 flipped_result = utils.bit_flipper(res[0])
                 flipped_results.append(flipped_result)
                 pbar.update(1)
 
-        print("Noise counts:", counts_noise)
         # self.plot_histogram(result.get_counts(), save_path="pics/histogram.png")
 
         end_time = time.time()
-        print(f"\nTime taken: {end_time - start_time} seconds.")
+        print(f"\nTime taken: {utils.convert_time(end_time - start_time)}\n")
+
         binary_chunks = self.handle_flipped_results(flipped_results)
-        print("Binary chunks:", binary_chunks)
-        converted_chunks = "".join(
-            [utils.convert_binary_to_text(chunk) for chunk in binary_chunks]
-        )
+        converted_chunks = utils.convert_binary_to_text(binary_chunks)
+
+        if converted_chunks != self.text_to_send:
+            print("Data mismatch.")
+            comparison_result = utils.compare_strings(
+                self.text_to_send, converted_chunks
+            )
+            print("Percentage of similarity: ", comparison_result["percentage_match"])
+            print("Sent data:\n", comparison_result["marked_string1"])
+            print("Received data:\n", comparison_result["marked_string2"])
+            print("\n")
 
         return converted_chunks, converted_chunks == self.text_to_send
