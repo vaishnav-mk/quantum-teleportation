@@ -32,6 +32,18 @@ class QuantumDataTeleporter:
         self.circuits = [QuantumCircuit(3, 3) for _ in range(len(self.binary_text))]
         self.create_circuits()
 
+    """
+    
+    """
+    
+    def calculate_adaptive_shots(self, circuit_complexity: int, confidence_level: float = 0.90) -> int:
+        base_shots = 512    
+        max_shots = 4096
+        additional_shots = min(circuit_complexity * 10, max_shots - base_shots)
+        if confidence_level > 0.90:
+            additional_shots = min(additional_shots * 2, max_shots - base_shots)
+        return base_shots + additional_shots
+
     def handle_flipped_results(self, flipped_results: list[str]) -> list[str]:
         """
         Handles flipped results by merging and splitting binary chunks.
@@ -89,7 +101,13 @@ class QuantumDataTeleporter:
         ) as pbar:
             simulator = BasicAer.get_backend("qasm_simulator")
 
-            for circuit in self.circuits:
+            for i, circuit in enumerate(self.circuits):
+                """
+                Calculate the adaptive shots based on the circuit complexity.                
+                """
+
+                circuit_complexity = len(circuit.data)
+                self.shots = self.calculate_adaptive_shots(circuit_complexity)
                 result = execute(circuit, backend=simulator, shots=self.shots).result()
                 flipped_result = utils.bit_flipper(list(result.get_counts())[0][0])
                 flipped_results.append(flipped_result)
