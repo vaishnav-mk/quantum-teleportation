@@ -1,7 +1,15 @@
 import quantum_teleportation.utils as utils
-from qiskit import QuantumCircuit, BasicAer, execute
+from qiskit import QuantumCircuit, BasicAer, execute, QuantumRegister, ClassicalRegister
 from tqdm import tqdm
 import time
+
+from qiskit_aer import AerSimulator
+
+from qiskit.providers.fake_provider import FakeVigo
+
+device_backend = FakeVigo()
+
+import matplotlib.pyplot as plt
 
 
 class QuantumDataTeleporter:
@@ -24,34 +32,63 @@ class QuantumDataTeleporter:
         if not file_path and not text_to_send:
             raise ValueError("Either file_path or text_to_send must be provided.")
         self.shots = shots
-        self.separator = utils.convert_text_to_binary(separator)
         self.text_to_send = (
             utils.text_from_file(file_path) if file_path else text_to_send
         )
-        self.binary_text = utils.convert_text_to_binary(",".join(self.text_to_send))
-        self.circuits = [QuantumCircuit(3, 3) for _ in range(len(self.binary_text))]
+        self.binary_text, self.text_to_send = utils.convert_text_to_binary_with_filter(
+            self.text_to_send
+        )
+        self.circuits = []
+        for _ in range(len(self.binary_text)):
+            quantum_circuit = QuantumRegister(6, "quantum_bit")
+            classical_register = ClassicalRegister(6, "classical_bit")
+            circuit = QuantumCircuit(quantum_circuit, classical_register)
+            self.circuits.append(circuit)
+        # self.circuits = [QuantumCircuit(6, 6) for _ in range(len(self.binary_text))]
         self.create_circuits()
 
-    def handle_flipped_results(self, flipped_results: list[str]) -> list[str]:
+    # Adaptive shots comes here
+    def calculate_adaptive_shots(
+        self, circuit_complexity: int, confidence_level: float = 0.90
+    ) -> int:
         """
-        Handles flipped results by merging and splitting binary chunks.
+        Calculates the number of shots required based on the circuit complexity and confidence level.
+
+        Args:
+            circuit_complexity (int): Complexity of the quantum circuit.
+            confidence_level (float): Confidence level for the simulation.
+
+        Returns:
+            int: Number of shots required for the simulation.
+        """
+        base_shots = 0
+        max_shots = 5
+        additional_shots = min(circuit_complexity * 5, max_shots - base_shots)
+        if confidence_level > 0.90:
+            additional_shots = min(circuit_complexity * 1.5, max_shots - base_shots)
+
+        # print(f"Base shots: {base_shots}, Additional shots: {additional_shots}")
+        return base_shots + additional_shots
+
+    def handle_flipped_results(self, flipped_results: list[str]) -> list[str]:
+        """Handles flipped results by merging and splitting binary chunks into bytes.
 
         Args:
             flipped_results (list): List of flipped results.
 
         Returns:
-            list: Binary chunks after processing.
+            list: List of bytes (8-bit chunks).
         """
+
         merged_binary = "".join(flipped_results)
-        binary_chunks = merged_binary.split(self.separator)
 
-        for i in range(1, len(binary_chunks)):
-            if binary_chunks[i - 1] == "" and binary_chunks[i] == "":
-                binary_chunks[i - 1] = self.separator
-                binary_chunks[i] = ""
-        binary_chunks = [chunk for chunk in binary_chunks if chunk != ""]
+        # Separate binary chunks into 8-bit bytes
+        bytes_list = []
+        for i in range(0, len(merged_binary), 8):
+            byte = merged_binary[i : i + 8]
+            bytes_list.append(byte)
 
-        return binary_chunks
+        return bytes_list
 
     def create_circuits(self) -> None:
         """
@@ -70,7 +107,28 @@ class QuantumDataTeleporter:
             self.circuits[i].cx(1, 2)
             self.circuits[i].cz(0, 2)
             self.circuits[i].measure([2], [2])
-            
+
+            # ec
+            self.circuits[i].barrier()
+            self.circuits[i].measure([0, 1, 2], [3, 4, 5])
+            self.circuits[i].cx(3, 4)
+            self.circuits[i].cx(3, 5)
+            self.circuits[i].cx(4, 5)
+            self.circuits[i].barrier()
+            self.circuits[i].ccx(3, 4, 5)
+            self.circuits[i].measure([5], [0])
+
+            # self.circuits[i].draw(output="mpl", filename=f"pics/circuit_{i}.png")
+
+    def plot_histogram(self, counts, save_path=None):
+        plt.bar(counts.keys(), counts.values())
+        plt.xlabel("Outcome")
+        plt.ylabel("Frequency")
+        plt.title("Measurement Outcomes Histogram")
+        if save_path:
+            plt.savefig(save_path)
+        plt.show()
+
     def run_simulation(self) -> tuple[str, bool]:
         """
         Runs the quantum simulation.
@@ -81,23 +139,40 @@ class QuantumDataTeleporter:
         total_characters = len(self.circuits)
         start_time = time.time()
 
-        print(f"Processing {len(self.text_to_send)} characters ({total_characters} bits)...")
+        print(
+            f"Processing {len(self.text_to_send)} characters ({total_characters} bits)..."
+        )
         flipped_results = []
 
         with tqdm(
             total=total_characters, desc="Processing characters", unit="char"
         ) as pbar:
             simulator = BasicAer.get_backend("qasm_simulator")
+            sim_vigo = AerSimulator.from_backend(device_backend)
+            counts_noise = {}
 
-            for circuit in self.circuits:
+            self.shots = self.calculate_adaptive_shots(len(self.circuits[0].data))
+            print(f"shots: {self.shots}")
+
+            for i, circuit in enumerate(self.circuits):
+                result = sim_vigo.run(circuit, shots=self.shots).result()
+                # result = execute(circuit, backend=simulator, shots=self.shots).result()
+                counts_noise.update(result.get_counts())
+
+                res = max(result.get_counts(), key=result.get_counts().get)
+
                 result = execute(circuit, backend=simulator, shots=self.shots).result()
-                flipped_result = utils.bit_flipper(list(result.get_counts())[0][0])
+                flipped_result = utils.bit_flipper(res[0])
                 flipped_results.append(flipped_result)
                 pbar.update(1)
+
+        print("Noise counts:", counts_noise)
+        # self.plot_histogram(result.get_counts(), save_path="pics/histogram.png")
 
         end_time = time.time()
         print(f"\nTime taken: {end_time - start_time} seconds.")
         binary_chunks = self.handle_flipped_results(flipped_results)
+        print("Binary chunks:", binary_chunks)
         converted_chunks = "".join(
             [utils.convert_binary_to_text(chunk) for chunk in binary_chunks]
         )

@@ -19,18 +19,32 @@ def text_from_file(file_path: str) -> str:
         return None
 
 
-def convert_text_to_binary(text: str) -> str:
+def convert_text_to_binary_with_filter(text: str) -> tuple[str, str]:
     """
-    Converts text to binary.
+    Converts text to binary, excluding characters that are out of ASCII bounds.
 
     Args:
         text (str): Input text.
 
     Returns:
-        str: Binary representation of the input text.
+        Tuple[str, str]: Binary representation of the filtered text and the new filtered text.
     """
-    binary_result = "".join(format(ord(char), "08b") for char in text)
-    return binary_result
+    filtered_text = []
+    binary_result = []
+
+    for char in text:
+        if ord(char) < 256:  # ASCII values that fit in 8 bits
+            binary_char = format(ord(char), "08b")
+            binary_result.append(binary_char)
+            filtered_text.append(char)
+        else:
+            print(f"Character {char} is out of ASCII bounds and will be excluded.")
+
+    binary_result_str = "".join(binary_result)
+    filtered_text_str = "".join(filtered_text)
+
+    print(f"Filtered Text: {filtered_text_str}, Binary: {binary_result_str}")
+    return binary_result_str, filtered_text_str
 
 
 def convert_binary_to_text(binary_str: str) -> str:
