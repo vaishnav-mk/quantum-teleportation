@@ -10,7 +10,7 @@ def main():
 
     text = "abc"
     quantum_comm = qc.QuantumDataTeleporter(
-        text_to_send=text, noise_model=True, logs=True, shots=-1
+        file_path="data/text.txt", noise_model=False, logs=True, shots=1
     )
     received_data, is_data_match = quantum_comm.run_simulation()
 

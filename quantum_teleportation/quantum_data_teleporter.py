@@ -18,7 +18,7 @@ load_dotenv()
 PRIVATE_KEY = os.getenv("PRIVATE_KEY")
 
 if not PRIVATE_KEY:
-    num = random.randint(800, 1000)
+    num = random.randint(70000, 71000)
     print(
         f"Warning: No private key found in the environment variables. Generating a random key with length: {num}..."
     )
@@ -76,9 +76,9 @@ class QuantumDataTeleporter:
                     )
                 else:
                     self.private_key = self.private_key[: len(_binary_text)]
-
+        
         self.binary_text = utils.xor_encode(_binary_text, self.private_key)
-
+        print(len(_binary_text), len(self.binary_text), len(self.private_key))
         self.circuits = []
         self.noise_model = noise_model
 
@@ -97,7 +97,7 @@ class QuantumDataTeleporter:
         text_length: int,
         confidence_level: float = 0.90,
         base_shots: int = 250,
-        max_shots: int = 1024,
+        max_shots: int = 4096,
     ) -> int:
         """
         Calculates the number of shots required based on the circuit complexity, text length, and confidence level.
