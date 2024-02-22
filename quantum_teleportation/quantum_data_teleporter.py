@@ -9,6 +9,7 @@ from qiskit_aer.noise import NoiseModel
 from dotenv import load_dotenv
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import random
 import time
 import os
 
@@ -17,10 +18,11 @@ load_dotenv()
 PRIVATE_KEY = os.getenv("PRIVATE_KEY")
 
 if not PRIVATE_KEY:
+    num = random.randint(800, 1000)
     print(
-        "Warning: No private key found in the environment variables. Generating a random key..."
+        f"Warning: No private key found in the environment variables. Generating a random key with length: {num}..."
     )
-    PRIVATE_KEY = q_utils.qrng(1000)
+    PRIVATE_KEY = q_utils.qrng(num)
     os.environ["PRIVATE_KEY"] = PRIVATE_KEY
 
     with open(".env", "a") as f:
@@ -36,6 +38,7 @@ class QuantumDataTeleporter:
         file_path: str = None,
         text_to_send: str = None,
         noise_model=False,
+        logs: bool = True,
     ) -> None:
         """
         Initializes the QuantumDataTeleporter object.
@@ -48,7 +51,10 @@ class QuantumDataTeleporter:
         """
         if not file_path and not text_to_send:
             raise ValueError("Either file_path or text_to_send must be provided.")
+        
         self.shots = shots
+        self.logs = logs
+
         self.text_to_send = (
             utils.text_from_file(file_path) if file_path else text_to_send
         )
@@ -77,7 +83,13 @@ class QuantumDataTeleporter:
         self.noise_model = noise_model
 
         self.circuits = [QuantumCircuit(6, 6) for _ in range(len(self.binary_text))]
+
         self.create_circuits()
+
+        if self.logs:
+            print(f"Text to send: {self.text_to_send}")
+            print(f"Binary text: {self.binary_text}")
+            print(f"Circuit count: {len(self.circuits)}")
 
     def calculate_adaptive_shots(
         self,
@@ -85,7 +97,7 @@ class QuantumDataTeleporter:
         text_length: int,
         confidence_level: float = 0.90,
         base_shots: int = 250,
-        max_shots: int = 1024
+        max_shots: int = 1024,
     ) -> int:
         """
         Calculates the number of shots required based on the circuit complexity, text length, and confidence level.
@@ -100,18 +112,27 @@ class QuantumDataTeleporter:
         Returns:
             int: Number of shots required for the simulation.
         """
-        # print(f"Complexity: {circuit_complexity}, Text Length: {text_length}")
-        additional_shots_complexity = min(circuit_complexity * 5, max_shots - base_shots)
+
+        additional_shots_complexity = min(
+            circuit_complexity * 5, max_shots - base_shots
+        )
         additional_shots_length = min(text_length * 0.1, max_shots - base_shots)
 
-        # print(f"Complexity Shots: {additional_shots_complexity}, Length Shots: {additional_shots_length}")
-        additional_shots = round((additional_shots_complexity + additional_shots_length) / 2)
+        additional_shots = round(
+            (additional_shots_complexity + additional_shots_length) / 2
+        )
 
         if confidence_level > 0.90:
             additional_shots = min(circuit_complexity * 1.5, max_shots - base_shots)
 
-        return base_shots + additional_shots
+        if self.logs:
+            print(
+                f"Complexity: {circuit_complexity}, Text Length: {text_length}, Confidence Level: {confidence_level}, Base Shots: {base_shots}, Max Shots: {max_shots}"
+            )
+            print(f"Additional shots: {additional_shots}")
+            print(f"Total shots: {base_shots + additional_shots}")
 
+        return base_shots + additional_shots
 
     def handle_flipped_results(self, flipped_results: list[str]) -> list[str]:
         """Handles flipped results by merging and splitting binary chunks into bytes.
@@ -125,11 +146,15 @@ class QuantumDataTeleporter:
 
         merged_binary = "".join(flipped_results)
 
-        # Separate binary chunks into 8-bit bytes
         bytes_list = []
         for i in range(0, len(merged_binary), 8):
             byte = merged_binary[i : i + 8]
             bytes_list.append(byte)
+
+        if self.logs:
+            print(f"Flipped results: {flipped_results}")
+            print(f"Merged binary: {merged_binary}")
+            print(f"Bytes list: {bytes_list}")
 
         return bytes_list
 
@@ -137,6 +162,9 @@ class QuantumDataTeleporter:
         """
         Creates quantum circuits based on the binary text.
         """
+        if self.logs:
+            print(f"Creating circuits for {len(self.binary_text)} bits...")
+
         for i in range(len(self.binary_text)):
             self.circuits[i].x(1 if self.binary_text[i] == "1" else 0)
             self.circuits[i].barrier()
@@ -185,14 +213,22 @@ class QuantumDataTeleporter:
         total_characters = len(self.circuits)
         start_time = time.time()
 
-        self.shots = self.calculate_adaptive_shots(
-            len(self.circuits[0] if self.circuits else 0),
-            text_length=len(self.text_to_send),
+        if self.logs:
+            print(f"Running simulation with {total_characters} characters...")
+
+        self.shots = (
+            self.calculate_adaptive_shots(
+                len(self.circuits[0] if self.circuits else 0),
+                text_length=len(self.text_to_send),
+            )
+            if self.shots == -1
+            else self.shots
         )
 
         print(
-            f"Processing {len(self.text_to_send)} characters ({total_characters} bits)... with {self.shots} shots. | Noise Model: {self.noise_model}"
+            f"Processing {len(self.text_to_send)} characters ({total_characters} bits)... with {self.shots} {'shots' if self.shots > 1 else 'shot'}. | Noise Model: {self.noise_model}"
         )
+        
         flipped_results = []
 
         with tqdm(

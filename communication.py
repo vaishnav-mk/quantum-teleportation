@@ -19,7 +19,7 @@ def main():
 
     # Example usage with a string
     print("\n*** Example usage with a string ***")
-    text = "abcdefghijklmnopqrstuvioejvikejmvloribvioejiobreuonolerjmboierjmboierjmnoibrejnolbierjoberunho"  # Text to send
+    text = "abc"  # Text to send
     quantum_comm = qc.QuantumDataTeleporter(
         text_to_send=text, shots=1, noise_model=True
     )  # Create a QuantumDataTeleporter object

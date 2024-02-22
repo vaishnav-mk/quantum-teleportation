@@ -17,7 +17,7 @@ def qrng(num_bits: int) -> str:
     qubits_per_circuit = 29
 
     num_circuits = (num_bits + qubits_per_circuit - 1) // qubits_per_circuit
-    print(f"Number of circuits: {num_circuits}")
+    # print(f"Number of circuits: {num_circuits}")
 
     simulator = AerSimulator()
     binary_str = ""
