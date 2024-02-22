@@ -15,7 +15,7 @@ $ cd quantum-teleportation
 
 ```bash
 $ conda env create -f environment.yml
-$ conda activate panorama
+$ conda activate quantum-env
 ```
 
 3. Run the `communication.py` script
