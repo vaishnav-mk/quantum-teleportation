@@ -70,8 +70,12 @@ def convert_binary_to_text(binary_list) -> str:
     Returns:
         str: Text representation of the binary input.
     """
-    text = bytearray(int(binary, 2) for binary in binary_list).decode("utf-8")
-    return text
+    try:
+        text = bytearray(int(binary, 2) for binary in binary_list).decode("utf-8")
+        return text
+    except Exception as e:
+        print(f"Error converting binary to text: {e} | Perhaps the key is incorrect?")
+        return ""
 
 
 def bit_flipper(bits: str) -> str:
@@ -147,3 +151,43 @@ def compare_strings(string1: str, string2: str) -> dict:
         "string1_length": len(string1),
         "string2_length": len(string2),
     }
+
+
+def xor_encode(binary: str, key: str) -> str:
+    """
+    Encodes a binary string using XOR with a key.
+
+    Args:
+        binary (str): Binary string to encode.
+        key (str): Key for XOR encoding.
+
+    Returns:
+        str: Encoded binary string.
+    """
+    encoded_binary = ""
+    for bit1, bit2 in zip(binary, key):
+        if bit1 != bit2:
+            encoded_binary += "1"
+        else:
+            encoded_binary += "0"
+    return encoded_binary
+
+
+def xor_decode(encoded_binary: str, key: str) -> str:
+    """
+    Decodes a binary string using XOR with a key.
+
+    Args:
+        encoded_binary (str): Encoded binary string to decode.
+        key (str): Key for XOR decoding.
+
+    Returns:
+        str: Decoded binary string.
+    """
+    decoded_binary = ""
+    for bit1, bit2 in zip(encoded_binary, key):
+        if bit1 != bit2:
+            decoded_binary += "1"
+        else:
+            decoded_binary += "0"
+    return decoded_binary

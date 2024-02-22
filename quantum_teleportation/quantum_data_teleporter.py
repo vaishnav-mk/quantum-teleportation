@@ -1,16 +1,32 @@
 import quantum_teleportation.utils as utils
+import quantum_teleportation.qiskit_utils as q_utils
+
 from qiskit import QuantumCircuit, BasicAer, execute, QuantumRegister, ClassicalRegister
+from qiskit_aer import AerSimulator
+from qiskit.providers.fake_provider import FakeVigo
 from qiskit_aer.noise import NoiseModel
+
+from dotenv import load_dotenv
+import matplotlib.pyplot as plt
 from tqdm import tqdm
 import time
+import os
 
-from qiskit_aer import AerSimulator
+load_dotenv()
 
-from qiskit.providers.fake_provider import FakeVigo
+PRIVATE_KEY = os.getenv("PRIVATE_KEY")
+
+if not PRIVATE_KEY:
+    print(
+        "Warning: No private key found in the environment variables. Generating a random key..."
+    )
+    PRIVATE_KEY = q_utils.qrng(1000)
+    os.environ["PRIVATE_KEY"] = PRIVATE_KEY
+
+    with open(".env", "a") as f:
+        f.write(f"PRIVATE_KEY={PRIVATE_KEY}")
 
 device_backend = FakeVigo()
-
-import matplotlib.pyplot as plt
 
 
 class QuantumDataTeleporter:
@@ -36,7 +52,27 @@ class QuantumDataTeleporter:
         self.text_to_send = (
             utils.text_from_file(file_path) if file_path else text_to_send
         )
-        self.binary_text = utils.convert_text_to_binary(self.text_to_send)
+        self.noise_model = noise_model
+
+        _binary_text = utils.convert_text_to_binary(self.text_to_send)
+
+        self.private_key = PRIVATE_KEY
+
+        if self.private_key:
+            if len(self.private_key) != len(self.text_to_send):
+                print(
+                    "Warning: Private key length does not match text length. Slicing..."
+                )
+                if len(self.private_key) < len(_binary_text):
+                    self.private_key = (
+                        self.private_key
+                        + self.private_key[: len(_binary_text) - len(self.private_key)]
+                    )
+                else:
+                    self.private_key = self.private_key[: len(_binary_text)]
+
+        self.binary_text = utils.xor_encode(_binary_text, self.private_key)
+
         self.circuits = []
         self.noise_model = noise_model
 
@@ -46,14 +82,16 @@ class QuantumDataTeleporter:
     def calculate_adaptive_shots(
         self,
         circuit_complexity: int,
+        text_length: int,
         confidence_level: float = 0.90,
-        base_shots: int = 0,
-        max_shots: int = 5,
+        base_shots: int = 250,
+        max_shots: int = 1024
     ) -> int:
         """
-        Calculates the number of shots required based on the circuit complexity and confidence level.
+        Calculates the number of shots required based on the circuit complexity, text length, and confidence level.
 
         Args:
+            text_length (int): Length of the text to be encoded.
             circuit_complexity (int): Complexity of the quantum circuit.
             confidence_level (float): Confidence level for the simulation.
             base_shots (int): Base number of shots for the simulation.
@@ -62,12 +100,18 @@ class QuantumDataTeleporter:
         Returns:
             int: Number of shots required for the simulation.
         """
-        additional_shots = min(circuit_complexity * 5, max_shots - base_shots)
+        # print(f"Complexity: {circuit_complexity}, Text Length: {text_length}")
+        additional_shots_complexity = min(circuit_complexity * 5, max_shots - base_shots)
+        additional_shots_length = min(text_length * 0.1, max_shots - base_shots)
+
+        # print(f"Complexity Shots: {additional_shots_complexity}, Length Shots: {additional_shots_length}")
+        additional_shots = round((additional_shots_complexity + additional_shots_length) / 2)
+
         if confidence_level > 0.90:
             additional_shots = min(circuit_complexity * 1.5, max_shots - base_shots)
 
-        # print(f"Base shots: {base_shots}, Additional shots: {additional_shots}")
         return base_shots + additional_shots
+
 
     def handle_flipped_results(self, flipped_results: list[str]) -> list[str]:
         """Handles flipped results by merging and splitting binary chunks into bytes.
@@ -142,7 +186,8 @@ class QuantumDataTeleporter:
         start_time = time.time()
 
         self.shots = self.calculate_adaptive_shots(
-            len(self.circuits[0] if self.circuits else 0)
+            len(self.circuits[0] if self.circuits else 0),
+            text_length=len(self.text_to_send),
         )
 
         print(
@@ -175,6 +220,8 @@ class QuantumDataTeleporter:
 
         end_time = time.time()
         print(f"\nTime taken: {utils.convert_time(end_time - start_time)}\n")
+
+        flipped_results = utils.xor_decode(flipped_results, self.private_key)
 
         binary_chunks = self.handle_flipped_results(flipped_results)
         converted_chunks = utils.convert_binary_to_text(binary_chunks)
