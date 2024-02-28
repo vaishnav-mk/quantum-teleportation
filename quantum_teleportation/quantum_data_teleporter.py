@@ -1,6 +1,6 @@
 import quantum_teleportation.utils as utils
 import quantum_teleportation.qiskit_utils as q_utils
-import brotli
+import quantum_teleportation.compression_utils as c_utils
 
 from qiskit import QuantumCircuit, BasicAer, execute, QuantumRegister, ClassicalRegister
 from qiskit_aer import AerSimulator
@@ -39,6 +39,7 @@ class QuantumDataTeleporter:
         file_path: str = None,
         image_path: str = None,
         text_to_send: str = None,
+        compression: str = "brotli",
         noise_model=False,
         logs: bool = True,
     ) -> None:
@@ -51,6 +52,7 @@ class QuantumDataTeleporter:
             file_path (str): Path to the file for reading text data.
             image_path (str): Path to the image for reading text data.
             text_to_send (str): Text data to be sent if file_path is not provided.
+            compression (str): Compression method to use: "adaptive", "brotli", or False.
         """
         if not file_path and not text_to_send and not image_path:
             raise ValueError(
@@ -59,20 +61,18 @@ class QuantumDataTeleporter:
 
         self.shots = shots
         self.logs = logs
+        self.compression = compression
+        self.initial_text = text_to_send
 
-        self.text_to_send = (
-            utils.text_from_file(file_path)
-            if file_path
-            else (utils.image_to_base64(image_path) if image_path else text_to_send)
-        )
-
-        compressed_data, compression_percentage = utils.compress_data(self.text_to_send)
-        print(f"Compression percentage: {compression_percentage}%")
-        print(f"Compressed data: {compressed_data}")
-
-        self.text_to_send = compressed_data
-        
-
+        if compression == "adaptive":
+            self.text_to_send = c_utils.adaptive_compression(text_to_send)
+        elif compression == "brotli":
+            self.text_to_send = c_utils.brotli_compression(text_to_send)
+        elif not compression:
+            self.text_to_send = text_to_send
+        else:
+            raise ValueError("Invalid compression method. Use 'adaptive', 'brotli', or False.")
+    
         self.image_path = image_path
 
         self.noise_model = noise_model
@@ -96,7 +96,6 @@ class QuantumDataTeleporter:
                     # Truncate the private key if it's longer than the binary text length
                     self.private_key = self.private_key[: len(_binary_text)]
 
-        # self.binary_text = utils.xor_encode(_binary_text, self.private_key)
         self.binary_text = _binary_text
         print(len(_binary_text), len(self.binary_text), len(self.private_key))
         self.circuits = []
@@ -260,18 +259,18 @@ class QuantumDataTeleporter:
         )
         converted_chunks = utils.convert_binary_to_text(binary_chunks)
 
-        converted_chunks = utils.decompress_data(converted_chunks)
+        converted_chunks = c_utils.decompress_data(data=converted_chunks, algorithm=self.compression, logs=self.logs)
 
         print(f"Received data: {converted_chunks}")
 
         if converted_chunks != self.text_to_send:
             print("Data mismatch.")
             comparison_result = utils.compare_strings(
-                utils.decompress_data(self.text_to_send), converted_chunks
+                self.initial_text, converted_chunks
             )
             print("Percentage of similarity: ", comparison_result["percentage_match"])
             print("Sent data:\n", comparison_result["marked_string1"])
             print("Received data:\n", comparison_result["marked_string2"])
             print("\n")
 
-        return converted_chunks, converted_chunks == self.text_to_send
+        return converted_chunks, converted_chunks == self.initial_text
