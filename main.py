@@ -10,7 +10,11 @@ def main():
 
     text = "abc"
     quantum_comm = qc.QuantumDataTeleporter(
-        text_to_send=text, shots=-1, noise_model=True, logs=True, compression="brotli"
+        text_to_send=text,
+        shots=-1,
+        noise_model=True,
+        logs=True,
+        compression="brotli",  # compression can be "brotli" or "adaptive" or False
     )
     received_data, is_data_match = quantum_comm.run_simulation()
 
