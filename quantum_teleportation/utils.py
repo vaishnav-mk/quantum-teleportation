@@ -1,3 +1,6 @@
+from PIL import Image
+import base64
+import brotli
 def text_from_file(file_path: str) -> str:
     """
     Reads text data from a file.
@@ -191,3 +194,97 @@ def xor_decode(encoded_binary: str, key: str) -> str:
         else:
             decoded_binary += "0"
     return decoded_binary
+
+def image_to_binary(image_path, grayscale=True, threshold=None):
+    """
+    Convert an image to binary.
+
+    Args:
+        image_path (str): Path to the image file.
+        grayscale (bool, optional): Whether to convert the image to grayscale. Default is True.
+        threshold (int, optional): Threshold value for binarization. Pixels above this value will be set to 1, 
+                                   and pixels below or equal to this value will be set to 0. Default is None.
+
+    Returns:
+        str: Binary representation of the image.
+    """
+    img = Image.open(image_path)
+    
+    if grayscale:
+        img = img.convert('L')
+    
+    if threshold is not None:
+        img = img.point(lambda p: p > threshold and 255)
+    
+    pixels = list(img.getdata())
+    
+    binary_data = [format(pixel, '08b') for pixel in pixels]
+    
+    binary_string = ''.join(binary_data)
+    
+    return binary_string
+
+def image_to_base64(image_path: str) -> str:
+    """
+    Encodes an image file to Base64 format.
+
+    Args:
+        image_path (str): Path to the image file.
+
+    Returns:
+        str: Base64 encoded string representing the image.
+    """
+    with open(image_path, "rb") as image_file:
+        encoded_image = base64.b64encode(image_file.read()).decode("utf-8")
+    print(f"Encoded image: {encoded_image}")
+    return encoded_image
+
+def handle_flipped_results(flipped_results: list[str], logs: bool = False) -> list[str]:
+    """Handles flipped results by merging and splitting binary chunks into bytes.
+    Args:
+        flipped_results (list): List of flipped results.
+    Returns:
+        list: List of bytes (8-bit chunks).
+    """
+    merged_binary = "".join(flipped_results)
+    bytes_list = []
+    for i in range(0, len(merged_binary), 8):
+        byte = merged_binary[i : i + 8]
+        bytes_list.append(byte)
+    if logs:
+        print(f"Merged binary: {merged_binary}")
+        print(f"Bytes list: {bytes_list}")
+    return bytes_list
+
+def compress_data(data: str) -> tuple[str, float]:
+    """
+    Compresses data using Brotli compression algorithm, encodes the compressed data in Base64,
+    and calculates the compression percentage.
+
+    Args:
+        data (str): The data to be compressed.
+
+    Returns:
+        tuple[str, float]: A tuple containing the Base64 encoded compressed data
+        and the compression percentage.
+    """
+    original_length = len(data)
+    compressed_data = brotli.compress(data.encode())
+    base64_encoded_data = base64.b64encode(compressed_data).decode()
+    compressed_length = len(base64_encoded_data)
+    compression_percentage = ((original_length - compressed_length) / original_length) * 100
+    return base64_encoded_data, compression_percentage
+
+def decompress_data(compressed_data: str) -> str:
+    """
+    Decompresses Base64 encoded compressed data using Brotli decompression algorithm.
+
+    Args:
+        compressed_data (str): The Base64 encoded compressed data.
+
+    Returns:
+        str: The decompressed data.
+    """
+    compressed_data_bytes = base64.b64decode(compressed_data.encode())
+    decompressed_data = brotli.decompress(compressed_data_bytes).decode()
+    return decompressed_data

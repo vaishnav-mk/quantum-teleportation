@@ -1,5 +1,6 @@
 import quantum_teleportation.utils as utils
 import quantum_teleportation.qiskit_utils as q_utils
+import brotli
 
 from qiskit import QuantumCircuit, BasicAer, execute, QuantumRegister, ClassicalRegister
 from qiskit_aer import AerSimulator
@@ -18,7 +19,7 @@ load_dotenv()
 PRIVATE_KEY = os.getenv("PRIVATE_KEY")
 
 if not PRIVATE_KEY:
-    num = random.randint(70000, 71000)
+    num = random.randint(2000, 2500)
     print(
         f"Warning: No private key found in the environment variables. Generating a random key with length: {num}..."
     )
@@ -36,6 +37,7 @@ class QuantumDataTeleporter:
         self,
         shots: int = 1,
         file_path: str = None,
+        image_path: str = None,
         text_to_send: str = None,
         noise_model=False,
         logs: bool = True,
@@ -47,17 +49,32 @@ class QuantumDataTeleporter:
             separator (str): Separator used for binary encoding.
             shots (int): Number of shots for the quantum simulation.
             file_path (str): Path to the file for reading text data.
+            image_path (str): Path to the image for reading text data.
             text_to_send (str): Text data to be sent if file_path is not provided.
         """
-        if not file_path and not text_to_send:
-            raise ValueError("Either file_path or text_to_send must be provided.")
-        
+        if not file_path and not text_to_send and not image_path:
+            raise ValueError(
+                "Either file_path or text_to_send or image_path must be provided."
+            )
+
         self.shots = shots
         self.logs = logs
 
         self.text_to_send = (
-            utils.text_from_file(file_path) if file_path else text_to_send
+            utils.text_from_file(file_path)
+            if file_path
+            else (utils.image_to_base64(image_path) if image_path else text_to_send)
         )
+
+        compressed_data, compression_percentage = utils.compress_data(self.text_to_send)
+        print(f"Compression percentage: {compression_percentage}%")
+        print(f"Compressed data: {compressed_data}")
+
+        self.text_to_send = compressed_data
+        
+
+        self.image_path = image_path
+
         self.noise_model = noise_model
 
         _binary_text = utils.convert_text_to_binary(self.text_to_send)
@@ -67,17 +84,20 @@ class QuantumDataTeleporter:
         if self.private_key:
             if len(self.private_key) != len(self.text_to_send):
                 print(
-                    "Warning: Private key length does not match text length. Slicing..."
+                    "Warning: Private key length does not match text length. Adjusting..."
                 )
                 if len(self.private_key) < len(_binary_text):
-                    self.private_key = (
-                        self.private_key
-                        + self.private_key[: len(_binary_text) - len(self.private_key)]
-                    )
-                else:
+                    print("Warning: Private key length is less than text length.")
+                    # Increase the private key length to match the binary text length
+                    while len(self.private_key) < len(_binary_text):
+                        self.private_key += self.private_key
                     self.private_key = self.private_key[: len(_binary_text)]
-        
-        self.binary_text = utils.xor_encode(_binary_text, self.private_key)
+                else:
+                    # Truncate the private key if it's longer than the binary text length
+                    self.private_key = self.private_key[: len(_binary_text)]
+
+        # self.binary_text = utils.xor_encode(_binary_text, self.private_key)
+        self.binary_text = _binary_text
         print(len(_binary_text), len(self.binary_text), len(self.private_key))
         self.circuits = []
         self.noise_model = noise_model
@@ -86,7 +106,7 @@ class QuantumDataTeleporter:
 
         self.create_circuits()
 
-        if self.logs:
+        if self.logs and not self.image_path:
             print(f"Text to send: {self.text_to_send}")
             print(f"Binary text: {self.binary_text}")
             print(f"Circuit count: {len(self.circuits)}")
@@ -133,30 +153,6 @@ class QuantumDataTeleporter:
             print(f"Total shots: {base_shots + additional_shots}")
 
         return base_shots + additional_shots
-
-    def handle_flipped_results(self, flipped_results: list[str]) -> list[str]:
-        """Handles flipped results by merging and splitting binary chunks into bytes.
-
-        Args:
-            flipped_results (list): List of flipped results.
-
-        Returns:
-            list: List of bytes (8-bit chunks).
-        """
-
-        merged_binary = "".join(flipped_results)
-
-        bytes_list = []
-        for i in range(0, len(merged_binary), 8):
-            byte = merged_binary[i : i + 8]
-            bytes_list.append(byte)
-
-        if self.logs:
-            print(f"Flipped results: {flipped_results}")
-            print(f"Merged binary: {merged_binary}")
-            print(f"Bytes list: {bytes_list}")
-
-        return bytes_list
 
     def create_circuits(self) -> None:
         """
@@ -228,7 +224,7 @@ class QuantumDataTeleporter:
         print(
             f"Processing {len(self.text_to_send)} characters ({total_characters} bits)... with {self.shots} {'shots' if self.shots > 1 else 'shot'}. | Noise Model: {self.noise_model}"
         )
-        
+
         flipped_results = []
 
         with tqdm(
@@ -257,15 +253,21 @@ class QuantumDataTeleporter:
         end_time = time.time()
         print(f"\nTime taken: {utils.convert_time(end_time - start_time)}\n")
 
-        flipped_results = utils.xor_decode(flipped_results, self.private_key)
+        # flipped_results = utils.xor_decode(flipped_results, self.private_key)
 
-        binary_chunks = self.handle_flipped_results(flipped_results)
+        binary_chunks = utils.handle_flipped_results(
+            flipped_results=flipped_results, logs=self.logs
+        )
         converted_chunks = utils.convert_binary_to_text(binary_chunks)
+
+        converted_chunks = utils.decompress_data(converted_chunks)
+
+        print(f"Received data: {converted_chunks}")
 
         if converted_chunks != self.text_to_send:
             print("Data mismatch.")
             comparison_result = utils.compare_strings(
-                self.text_to_send, converted_chunks
+                utils.decompress_data(self.text_to_send), converted_chunks
             )
             print("Percentage of similarity: ", comparison_result["percentage_match"])
             print("Sent data:\n", comparison_result["marked_string1"])
