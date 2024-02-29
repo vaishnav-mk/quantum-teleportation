@@ -1,7 +1,7 @@
 import base64
 import brotli
 
-def adaptive_compression(text: str) -> tuple[str, str, float]:
+def adaptive_compression(text: str, threshold = 1024) -> tuple[str, str, float]:
     """
     Compresses the given text using Brotli if the size exceeds a threshold,
     otherwise uses no compression.
@@ -12,7 +12,7 @@ def adaptive_compression(text: str) -> tuple[str, str, float]:
     Returns:
         tuple: Compressed data, compression method, and compression percentage.
     """
-    raise NotImplementedError("This function is not ready yet.")
+    if len(tuple)
 
 
 def brotli_compression(data: str) -> tuple[str, float]:
