@@ -26,6 +26,13 @@ def text_from_file(file_path: str) -> str:
 
 # After modification
 def convert_text_to_binary(text):
+    """
+    Converts text to binary.
+    Args:
+        text (str): Input text.
+    Returns:
+        str: Binary representation of the input text.
+    """
     if not isinstance(text, str):
         text = str(text)  # Convert to string if not already a string
     binary_result = "".join(format(byte, "08b") for byte in bytearray(text, "utf8"))
