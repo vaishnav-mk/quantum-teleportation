@@ -1,6 +1,9 @@
 import base64
 import brotli
 
+import brotli
+
+
 def adaptive_compression(text: str) -> tuple[str, str, float]:
     """
     Compresses the given text using Brotli if the size exceeds a threshold,
@@ -12,7 +15,12 @@ def adaptive_compression(text: str) -> tuple[str, str, float]:
     Returns:
         tuple: Compressed data, compression method, and compression percentage.
     """
-    raise NotImplementedError("This function is not ready yet.")
+    if len(text) > 128:
+        compressed_data = brotli.compress(text.encode())
+        base64_encoded_data = base64.b64encode(compressed_data).decode()
+        return base64_encoded_data
+    else:
+        return text
 
 
 def brotli_compression(data: str) -> tuple[str, float]:
@@ -66,7 +74,16 @@ def adaptive_decompression(data: str) -> str:
     Returns:
         str: Decompressed data.
     """
-    raise NotImplementedError("This function is not ready yet.")
+    try:
+        compressed_data_bytes = base64.b64decode(data.encode())
+        decompressed_data = brotli.decompress(compressed_data_bytes).decode()
+    except (brotli.error, base64.binascii.Error):
+        decompressed_data = (
+            data  # If decompression or decoding fails, return the original data
+        )
+
+    return decompressed_data
+
 
 def decompress_data(data: str, algorithm: str, logs: bool = True) -> str:
     """
