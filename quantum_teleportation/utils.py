@@ -1,5 +1,10 @@
+import os
+import uuid
 from PIL import Image
 import base64
+import logging
+import colorlog
+from datetime import datetime
 import brotli
 
 
@@ -244,6 +249,23 @@ def image_to_base64(image_path: str) -> str:
     print(f"Encoded image: {encoded_image}")
     return encoded_image
 
+def base64_to_image(base64_string, output_path):
+    """
+    Convert a base64 encoded image string to an image file.
+
+    Args:
+        base64_string (str): Base64 encoded image string.
+        output_path (str): Path to save the image file.
+
+    Returns:
+        str: Path to the saved image file.
+    """
+    image_data = base64.b64decode(base64_string)
+
+    with open(output_path, "wb") as image_file:
+        image_file.write(image_data)
+
+    return output_path
 
 def handle_flipped_results(flipped_results: list[str], logs: bool = False) -> list[str]:
     """Handles flipped results by merging and splitting binary chunks into bytes.
@@ -261,3 +283,88 @@ def handle_flipped_results(flipped_results: list[str], logs: bool = False) -> li
         print(f"Merged binary: {merged_binary}")
         print(f"Bytes list: {bytes_list}")
     return bytes_list
+
+
+def save_data(converted_chunks, output_path, image_path=None):
+    """
+    Save received data to a file.
+
+    Args:
+        converted_chunks (str): Received data to be saved.
+        output_path (str): Path to the directory where the data will be saved.
+        image_path (str, optional): Path to the original image file if applicable. Defaults to None.
+    """
+    print(f"Output path: {output_path} | Image path: {image_path}")
+    if output_path is None:
+        print("No output path provided. Data will not be saved.")
+        return
+    
+    if not "/" in output_path and not "\\" in output_path:
+        output_path = output_path + "/"
+
+    if not os.path.isdir(output_path):
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        print(f"Created directory: {os.path.dirname(output_path)}")
+
+    if os.path.isdir(output_path):
+        if image_path:
+            filename = os.path.basename(image_path)
+        else:
+            filename = f"output_{uuid.uuid4().hex[:8]}.txt"
+        output_file_path = os.path.join(output_path, filename)
+        print(f"Output file path: {output_file_path}")
+    else:
+        output_file_path = output_path
+        print(f"Output file path: {output_file_path}")
+
+    if image_path:
+        print(f"Image path: {image_path}")
+        output_file_path = output_file_path.replace(".txt", os.path.splitext(image_path)[1])
+        print(f"Output file path after extension: {output_file_path}")
+        base64_to_image(converted_chunks, output_file_path)
+        print(f"Saved image to: {output_file_path}")
+    else:
+        if isinstance(converted_chunks, str):
+            with open(output_file_path, "w") as f:
+                f.write(converted_chunks)
+                print(f"Saved text data to: {output_file_path}")
+        else:
+            with open(output_file_path, "wb") as f:
+                f.write(converted_chunks)
+                print(f"Saved binary data to: {output_file_path}")
+
+    return output_file_path
+
+
+class ColoredFormatter(colorlog.ColoredFormatter):
+    def format(self, record):
+        log_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        record.log_time = log_time
+        return super().format(record)
+
+
+def setup_logger(name, level=logging.DEBUG):
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    formatter = ColoredFormatter(
+        "%(log_color)s[%(log_time)s] [%(levelname)s]: %(message)s",
+        datefmt=None,
+        reset=True,
+        log_colors={
+            "DEBUG": "cyan",
+            "INFO": "green",
+            "WARNING": "yellow",
+            "ERROR": "red",
+            "CRITICAL": "red,bg_white",
+        },
+        secondary_log_colors={},
+        style="%",
+    )
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+
+    logger.addHandler(stream_handler)
+
+    return logger

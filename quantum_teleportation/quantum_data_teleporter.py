@@ -2,7 +2,7 @@ import quantum_teleportation.utils as utils
 import quantum_teleportation.qiskit_utils as q_utils
 import quantum_teleportation.compression_utils as c_utils
 
-from qiskit import QuantumCircuit, BasicAer, execute, QuantumRegister, ClassicalRegister
+from qiskit import QuantumCircuit, BasicAer, execute
 from qiskit_aer import AerSimulator
 from qiskit.providers.fake_provider import FakeVigo
 from qiskit_aer.noise import NoiseModel
@@ -13,15 +13,17 @@ from tqdm import tqdm
 import random
 import time
 import os
+import logging
+
+logger = utils.setup_logger("quantum_data_teleporter", level=logging.DEBUG)
 
 load_dotenv()
-
 PRIVATE_KEY = os.getenv("PRIVATE_KEY")
 
 if not PRIVATE_KEY:
     num = random.randint(2000, 2500)
-    print(
-        f"Warning: No private key found in the environment variables. Generating a random key with length: {num}..."
+    logger.warning(
+        f"No private key found in the environment variables. Generating a random key with length: {num}..."
     )
     PRIVATE_KEY = q_utils.qrng(num)
     os.environ["PRIVATE_KEY"] = PRIVATE_KEY
@@ -40,6 +42,7 @@ class QuantumDataTeleporter:
         image_path: str = None,
         text_to_send: str = None,
         compression: str = "brotli",
+        output_path: str = None,
         noise_model=False,
         logs: bool = True,
     ) -> None:
@@ -62,6 +65,14 @@ class QuantumDataTeleporter:
         self.shots = shots
         self.logs = logs
         self.compression = compression
+        self.output_path = output_path
+
+        text_to_send = (
+            utils.text_from_file(file_path)
+            if file_path
+            else utils.image_to_base64(image_path) if image_path else text_to_send
+        )
+
         self.initial_text = text_to_send
 
         if compression == "adaptive":
@@ -71,8 +82,10 @@ class QuantumDataTeleporter:
         elif not compression:
             self.text_to_send = text_to_send
         else:
-            raise ValueError("Invalid compression method. Use 'adaptive', 'brotli', or False.")
-    
+            raise ValueError(
+                "Invalid compression method. Use 'adaptive', 'brotli', or False."
+            )
+
         self.image_path = image_path
 
         self.noise_model = noise_model
@@ -83,11 +96,11 @@ class QuantumDataTeleporter:
 
         if self.private_key:
             if len(self.private_key) != len(self.text_to_send):
-                print(
-                    "Warning: Private key length does not match text length. Adjusting..."
+                logger.warning(
+                    "Private key length does not match text length. Adjusting..."
                 )
                 if len(self.private_key) < len(_binary_text):
-                    print("Warning: Private key length is less than text length.")
+                    logger.warning("Private key length is less than text length.")
                     # Increase the private key length to match the binary text length
                     while len(self.private_key) < len(_binary_text):
                         self.private_key += self.private_key
@@ -97,18 +110,15 @@ class QuantumDataTeleporter:
                     self.private_key = self.private_key[: len(_binary_text)]
 
         self.binary_text = _binary_text
-        print(len(_binary_text), len(self.binary_text), len(self.private_key))
-        self.circuits = []
-        self.noise_model = noise_model
 
         self.circuits = [QuantumCircuit(6, 6) for _ in range(len(self.binary_text))]
 
         self.create_circuits()
 
         if self.logs and not self.image_path:
-            print(f"Text to send: {self.text_to_send}")
-            print(f"Binary text: {self.binary_text}")
-            print(f"Circuit count: {len(self.circuits)}")
+            logger.info(f"Text to send: {self.text_to_send}")
+            # logger.info(f"Binary text: {self.binary_text}")
+            logger.debug(f"Circuit count: {len(self.circuits)}")
 
     def calculate_adaptive_shots(
         self,
@@ -145,11 +155,11 @@ class QuantumDataTeleporter:
             additional_shots = min(circuit_complexity * 1.5, max_shots - base_shots)
 
         if self.logs:
-            print(
+            logger.debug(
                 f"Complexity: {circuit_complexity}, Text Length: {text_length}, Confidence Level: {confidence_level}, Base Shots: {base_shots}, Max Shots: {max_shots}"
             )
-            print(f"Additional shots: {additional_shots}")
-            print(f"Total shots: {base_shots + additional_shots}")
+            logger.debug(f"Additional shots: {additional_shots}")
+            logger.info(f"Total shots: {base_shots + additional_shots}")
 
         return base_shots + additional_shots
 
@@ -158,7 +168,7 @@ class QuantumDataTeleporter:
         Creates quantum circuits based on the binary text.
         """
         if self.logs:
-            print(f"Creating circuits for {len(self.binary_text)} bits...")
+            logger.debug(f"Creating circuits for {len(self.binary_text)} bits...")
 
         for i in range(len(self.binary_text)):
             self.circuits[i].x(1 if self.binary_text[i] == "1" else 0)
@@ -184,17 +194,6 @@ class QuantumDataTeleporter:
             self.circuits[i].ccx(3, 4, 5)
             self.circuits[i].measure([5], [0])
 
-            # self.circuits[i].draw(output="mpl", filename=f"pics/circuit_{i}.png")
-
-    def plot_histogram(self, counts, save_path=None):
-        plt.bar(counts.keys(), counts.values())
-        plt.xlabel("Outcome")
-        plt.ylabel("Frequency")
-        plt.title("Measurement Outcomes Histogram")
-        if save_path:
-            plt.savefig(save_path)
-        plt.show()
-
     def run_simulation(self) -> tuple[str, bool]:
         """
         Runs the quantum simulation.
@@ -209,7 +208,7 @@ class QuantumDataTeleporter:
         start_time = time.time()
 
         if self.logs:
-            print(f"Running simulation with {total_characters} characters...")
+            logger.info(f"Running simulation with {total_characters} characters...")
 
         self.shots = (
             self.calculate_adaptive_shots(
@@ -220,7 +219,7 @@ class QuantumDataTeleporter:
             else self.shots
         )
 
-        print(
+        logger.info(
             f"Processing {len(self.text_to_send)} characters ({total_characters} bits)... with {self.shots} {'shots' if self.shots > 1 else 'shot'}. | Noise Model: {self.noise_model}"
         )
 
@@ -247,30 +246,35 @@ class QuantumDataTeleporter:
                 flipped_results.append(flipped_result)
                 pbar.update(1)
 
-        # self.plot_histogram(result.get_counts(), save_path="pics/histogram.png")
-
         end_time = time.time()
-        print(f"\nTime taken: {utils.convert_time(end_time - start_time)}\n")
-
-        # flipped_results = utils.xor_decode(flipped_results, self.private_key)
+        logger.info(f"Time taken: {utils.convert_time(end_time - start_time)}")
 
         binary_chunks = utils.handle_flipped_results(
             flipped_results=flipped_results, logs=self.logs
         )
         converted_chunks = utils.convert_binary_to_text(binary_chunks)
 
-        converted_chunks = c_utils.decompress_data(data=converted_chunks, algorithm=self.compression, logs=self.logs)
+        converted_chunks = c_utils.decompress_data(
+            data=converted_chunks, algorithm=self.compression, logs=self.logs
+        )
 
-        print(f"Received data: {converted_chunks}")
+        logger.info(f"Received data: {converted_chunks}")
 
         if converted_chunks != self.text_to_send:
-            print("Data mismatch.")
+            logger.warning("Data mismatch.")
             comparison_result = utils.compare_strings(
                 self.initial_text, converted_chunks
             )
-            print("Percentage of similarity: ", comparison_result["percentage_match"])
-            print("Sent data:\n", comparison_result["marked_string1"])
-            print("Received data:\n", comparison_result["marked_string2"])
-            print("\n")
+            logger.warning(
+                "Percentage of similarity: %s",
+                comparison_result["percentage_match"],
+            )
+            logger.warning("Sent data:\n%s", comparison_result["marked_string1"])
+            logger.warning("Received data:\n%s", comparison_result["marked_string2"])
+        else:
+            logger.info("Data match.")
+            if self.output_path:
+                utils.save_data(converted_chunks=converted_chunks, output_path=self.output_path, image_path=self.image_path)
+                logger.info(f"Data saved to {self.output_path}")
 
         return converted_chunks, converted_chunks == self.initial_text
