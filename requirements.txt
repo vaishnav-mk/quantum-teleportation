@@ -4,3 +4,4 @@ tqdm==4.65.0
 python-dotenv==0.19.2
 qiskit_aer
 matplotlib
+brotli

@@ -1,7 +1,7 @@
 import base64
 import brotli
 
-def adaptive_compression(text: str) -> tuple[str, str, float]:
+def adaptive_compression(text: str, threshold = 128) -> tuple[str, str, float]:
     """
     Compresses the given text using Brotli if the size exceeds a threshold,
     otherwise uses no compression.
@@ -12,8 +12,11 @@ def adaptive_compression(text: str) -> tuple[str, str, float]:
     Returns:
         tuple: Compressed data, compression method, and compression percentage.
     """
-    raise NotImplementedError("This function is not ready yet.")
-
+    if len(text) <= threshold:
+        return text
+    else:
+        compressed_data, compressed_percentage = brotli_compression(text)
+        return compressed_data, "brotli", compressed_percentage
 
 def brotli_compression(data: str) -> tuple[str, float]:
     """
@@ -35,10 +38,12 @@ def brotli_compression(data: str) -> tuple[str, float]:
         (original_length - compressed_length) / original_length
     ) * 100
 
+    # Ensure both the encoded compressed data and the compression percentage are returned
     print(f"Original length: {original_length} bytes")
     print(f"Compressed length: {compressed_length} bytes")
-    print(f"Compression percentage: {compression_percentage:.2f}%")
+    print(f"Compression percentage: {compression_percentage:.2f}")
     return base64_encoded_data
+
 
 
 def brotli_decompression(compressed_data: str) -> str:
@@ -58,7 +63,7 @@ def brotli_decompression(compressed_data: str) -> str:
 
 def adaptive_decompression(data: str) -> str:
     """
-    Decompresses data using the zlib algorithm.
+    Decompresses data using the adaptive compression algorithm.
 
     Args:
         data (str): Compressed data to decompress.
@@ -66,7 +71,12 @@ def adaptive_decompression(data: str) -> str:
     Returns:
         str: Decompressed data.
     """
-    raise NotImplementedError("This function is not ready yet.")
+    try:
+        decoded_data = base64.b64decode(data, validate=True)
+        decompressed_data = brotli.decompress(decoded_data).decode()
+        return decompressed_data
+    except Exception:
+        return data
 
 def decompress_data(data: str, algorithm: str, logs: bool = True) -> str:
     """
