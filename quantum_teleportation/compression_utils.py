@@ -1,8 +1,6 @@
 import base64
 import brotli
 
-import brotli
-
 
 def adaptive_compression(text: str) -> tuple[str, str, float]:
     """
