@@ -116,7 +116,7 @@ class QuantumDataTeleporter:
 
         if self.logs and not self.image_path:
             logger.info(f"Text to send: {self.initial_text}")
-            # logger.info(f"Binary text: {self.binary_text}")
+            logger.info(f"Binary text: {self.binary_text}")
             logger.debug(f"Circuit count: {len(self.circuits)}")
 
     def calculate_adaptive_shots(
@@ -253,8 +253,8 @@ class QuantumDataTeleporter:
         )
         converted_chunks = utils.convert_binary_to_text(binary_chunks)
 
-        converted_chunks = c_utils.decompress_data(
-            data=converted_chunks, algorithm=self.compression, logs=self.logs
+        converted_chunks = c_utils.adaptive_decompression(
+            data=converted_chunks
         )
 
         logger.info(f"Received data: {converted_chunks}")

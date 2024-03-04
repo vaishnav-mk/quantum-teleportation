@@ -10,14 +10,14 @@ def main():
 
     text = "abvc"
     quantum_comm = qc.QuantumDataTeleporter(
-        # image_path="data/images/2.png",
-        file_path="data/files/text.txt",
+        image_path="data/images/2.png",
+        # file_path="data/files/text.txt",
         # text_to_send=text,
         shots=1,
         noise_model=False,
         logs=True,
         compression="adaptive",  # compression can be "brotli" or "adaptive" or False
-        output_path="res",
+        output_path="output",
     )
     received_data, is_data_match = quantum_comm.run_simulation()
 

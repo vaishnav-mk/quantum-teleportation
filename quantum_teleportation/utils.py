@@ -85,8 +85,7 @@ def convert_binary_to_text(binary_list) -> str:
         text = bytearray(int(binary, 2) for binary in binary_list).decode("utf-8")
         return text
     except Exception as e:
-        print(f"Error converting binary to text: {e} | Perhaps the key is incorrect?")
-        return ""
+        raise Exception(f"Error converting binary to text: {e} | Perhaps the key is incorrect? Eve is eveing")
 
 
 def bit_flipper(bits: str) -> str:
