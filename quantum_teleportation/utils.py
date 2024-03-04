@@ -249,6 +249,7 @@ def image_to_base64(image_path: str) -> str:
     print(f"Encoded image: {encoded_image}")
     return encoded_image
 
+
 def base64_to_image(base64_string, output_path):
     """
     Convert a base64 encoded image string to an image file.
@@ -266,6 +267,7 @@ def base64_to_image(base64_string, output_path):
         image_file.write(image_data)
 
     return output_path
+
 
 def handle_flipped_results(flipped_results: list[str], logs: bool = False) -> list[str]:
     """Handles flipped results by merging and splitting binary chunks into bytes.
@@ -285,7 +287,7 @@ def handle_flipped_results(flipped_results: list[str], logs: bool = False) -> li
     return bytes_list
 
 
-def save_data(converted_chunks, output_path, image_path=None):
+def save_data(converted_chunks, output_path, image_path=None, data=None):
     """
     Save received data to a file.
 
@@ -298,7 +300,7 @@ def save_data(converted_chunks, output_path, image_path=None):
     if output_path is None:
         print("No output path provided. Data will not be saved.")
         return
-    
+
     if not "/" in output_path and not "\\" in output_path:
         output_path = output_path + "/"
 
@@ -319,13 +321,20 @@ def save_data(converted_chunks, output_path, image_path=None):
 
     if image_path:
         print(f"Image path: {image_path}")
-        output_file_path = output_file_path.replace(".txt", os.path.splitext(image_path)[1])
+        output_file_path = output_file_path.replace(
+            ".txt", os.path.splitext(image_path)[1]
+        )
         print(f"Output file path after extension: {output_file_path}")
         base64_to_image(converted_chunks, output_file_path)
         print(f"Saved image to: {output_file_path}")
     else:
         if isinstance(converted_chunks, str):
             with open(output_file_path, "w") as f:
+                f.write(f"Time {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} IST\n")
+                if data:
+                    for key, value in data.items():
+                        f.write(f"{key}: {value}\n")
+                    f.write("--------------------\n\n")
                 f.write(converted_chunks)
                 print(f"Saved text data to: {output_file_path}")
         else:

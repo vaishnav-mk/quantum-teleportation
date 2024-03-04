@@ -116,7 +116,7 @@ class QuantumDataTeleporter:
         self.create_circuits()
 
         if self.logs and not self.image_path:
-            logger.info(f"Text to send: {self.text_to_send}")
+            logger.info(f"Text to send: {self.initial_text}")
             # logger.info(f"Binary text: {self.binary_text}")
             logger.debug(f"Circuit count: {len(self.circuits)}")
 
@@ -260,7 +260,7 @@ class QuantumDataTeleporter:
 
         logger.info(f"Received data: {converted_chunks}")
 
-        if converted_chunks != self.text_to_send:
+        if converted_chunks != self.initial_text:
             logger.warning("Data mismatch.")
             comparison_result = utils.compare_strings(
                 self.initial_text, converted_chunks
@@ -274,7 +274,21 @@ class QuantumDataTeleporter:
         else:
             logger.info("Data match.")
             if self.output_path:
-                utils.save_data(converted_chunks=converted_chunks, output_path=self.output_path, image_path=self.image_path)
+                utils.save_data(
+                    converted_chunks=converted_chunks,
+                    output_path=self.output_path,
+                    image_path=self.image_path,
+                    data={
+                        "text": self.initial_text,
+                        "data_match": converted_chunks == self.initial_text,
+                        "private_key": self.private_key,
+                        "binary_text": self.binary_text,
+                        "flipped_results": flipped_results,
+                        "compression": self.compression,
+                        "shots": self.shots,
+                        "noise_model": self.noise_model,
+                    },
+                )
                 logger.info(f"Data saved to {self.output_path}")
 
         return converted_chunks, converted_chunks == self.initial_text
