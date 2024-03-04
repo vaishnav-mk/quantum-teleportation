@@ -74,7 +74,6 @@ class QuantumDataTeleporter:
         )
 
         self.initial_text = text_to_send
-
         if compression == "adaptive":
             self.text_to_send = c_utils.adaptive_compression(text_to_send)
         elif compression == "brotli":
@@ -279,6 +278,7 @@ class QuantumDataTeleporter:
                     output_path=self.output_path,
                     image_path=self.image_path,
                     data={
+                        "time_taken": utils.convert_time(end_time - start_time),
                         "text": self.initial_text,
                         "data_match": converted_chunks == self.initial_text,
                         "private_key": self.private_key,

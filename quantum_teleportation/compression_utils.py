@@ -14,9 +14,8 @@ def adaptive_compression(text: str) -> tuple[str, str, float]:
         tuple: Compressed data, compression method, and compression percentage.
     """
     if len(text) > 128:
-        compressed_data = brotli.compress(text.encode())
-        base64_encoded_data = base64.b64encode(compressed_data).decode()
-        return base64_encoded_data
+        compressed_data = brotli_compression(text)
+        return compressed_data
     else:
         return text
 

@@ -330,7 +330,7 @@ def save_data(converted_chunks, output_path, image_path=None, data=None):
     else:
         if isinstance(converted_chunks, str):
             with open(output_file_path, "w") as f:
-                f.write(f"Time {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} IST\n")
+                f.write(f"time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} IST\n")
                 if data:
                     for key, value in data.items():
                         f.write(f"{key}: {value}\n")
