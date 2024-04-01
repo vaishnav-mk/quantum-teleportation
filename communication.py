@@ -8,7 +8,7 @@ def main():
 
     protocol_choice = input("Choose the protocol (1: Normal Teleporter, 2: BB84): ")
 
-    text = 'Elevate your tech journey at SRM Next Tech Lab — where innovation meets collaboration. Dive into specialized domains, experiment freely, and fuel your curiosity in a vibrant, visually pleasing space. Join us now!'
+    text = "Hello, World!"
 
     if protocol_choice == "1":
         # Normal Teleporter
@@ -17,9 +17,7 @@ def main():
 
     elif protocol_choice == "2":
         # BB84 Protocol
-        encoded_data, key_bits, base_bits = bb84.bb84_protocol(text)
-        received_data = bb84.decode_bb84(encoded_data, key_bits, base_bits)
-        is_data_match = received_data == text
+        received_data, is_data_match = bb84.bb84_protocol(text, compression="brotli", noise_model=True, shots=1, output_path="output")
 
     else:
         print("Invalid choice. Exiting...")
