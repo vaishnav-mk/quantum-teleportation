@@ -1,37 +1,31 @@
 import quantum_teleportation.quantum_data_teleporter as qc
-
+import quantum_teleportation.bb84 as bb84
 
 def main():
     """
-    Demonstrates the usage of the QuantumDataTeleporter class.
-
-    Args:
-        None
+    Demonstrates the usage of the QuantumDataTeleporter class and BB84 protocol.
     """
 
-    # # Example usage with a file
-    # print("\n*** Example usage with a file ***")
-    # file_path = "data/text.txt"  # Path to the text file
-    # quantum_comm = qc.QuantumDataTeleporter(file_path=file_path, shots=2, noise_model=True)  # Create a QuantumDataTeleporter object
-    # received_data, is_data_match = quantum_comm.run_simulation()  # Run the simulation
+    protocol_choice = input("Choose the protocol (1: Normal Teleporter, 2: BB84): ")
 
-    # print(f"Sent Data == Received Data: {is_data_match}")  # Check if the sent and received data match
+    text = "Hello, World!"
 
-    # Example usage with a string
-    print("\n*** Example usage with a string ***")
-    text = "abc"  # Text to send
-    quantum_comm = qc.QuantumDataTeleporter(
-        text_to_send=text, shots=1, noise_model=True
-    )  # Create a QuantumDataTeleporter object
-    received_data, is_data_match = quantum_comm.run_simulation()  # Run the simulation
+    if protocol_choice == "1":
+        # Normal Teleporter
+        quantum_comm = qc.QuantumDataTeleporter(text_to_send=text, shots=1, noise_model=True)
+        received_data, is_data_match = quantum_comm.run_simulation()
 
-    print(f"Sent Data = {text}")  # Print the sent data
-    print(f"Received Data = {received_data}")  # Print the received data
+    elif protocol_choice == "2":
+        # BB84 Protocol
+        received_data, is_data_match = bb84.bb84_protocol(text, compression="brotli", noise_model=True, shots=1, output_path="output")
 
-    print(
-        f"Sent Data == Received Data: {is_data_match}"
-    )  # Check if the sent and received data match
+    else:
+        print("Invalid choice. Exiting...")
+        return
 
+    print(f"Sent Data = {text}")
+    print(f"Received Data = {received_data}")
+    print(f"Sent Data == Received Data: {is_data_match}")
 
 if __name__ == "__main__":
-    main()  # Run the main function if this script is executed directly
+    main()
