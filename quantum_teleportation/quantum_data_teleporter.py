@@ -1,6 +1,7 @@
 import quantum_teleportation.utils as utils
 import quantum_teleportation.qiskit_utils as q_utils
 import quantum_teleportation.compression_utils as c_utils
+import quantum_teleportation.bb84 as bb84
 
 from qiskit import QuantumCircuit, BasicAer, execute
 from qiskit_aer import AerSimulator
