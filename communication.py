@@ -6,9 +6,9 @@ def main():
     Demonstrates the usage of the QuantumDataTeleporter class and BB84 protocol.
     """
 
-    protocol_choice = input("Choose the protocol (1: Normal Teleporter, 2: BB84): ")
+    protocol_choice = "2" #input("Choose the protocol (1: Normal Teleporter, 2: BB84): ")
 
-    text = "Hello, World!"
+    text = "a"
 
     if protocol_choice == "1":
         # Normal Teleporter
@@ -17,7 +17,9 @@ def main():
 
     elif protocol_choice == "2":
         # BB84 Protocol
-        received_data, is_data_match = bb84.bb84_protocol(text, compression="brotli", noise_model=True, shots=1, output_path="output")
+        res = bb84.BB84Protocol(text, compression=False, noise_model=True, shots=1, output_path="output")
+        res.run_protocol()
+        print(res)
 
     else:
         print("Invalid choice. Exiting...")

@@ -81,6 +81,8 @@ def convert_binary_to_text(binary_list) -> str:
     Returns:
         str: Text representation of the binary input.
     """
+    print(f"Binary list: {binary_list}")
+    print(''.join(binary_list))
     try:
         text = bytearray(int(binary, 2) for binary in binary_list).decode("utf-8")
         return text

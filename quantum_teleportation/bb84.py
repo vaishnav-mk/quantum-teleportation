@@ -76,7 +76,9 @@ class BB84Protocol:
         Returns:
             tuple: Tuple containing received data and a boolean indicating data match.
         """
-        encoded_data = ''.join(str(int(bit) ^ int(self.base_bits[i]) ^ int(self.key_bits[i])) for i, bit in enumerate(self.binary_data))
+        print(f"Data to send: {self.data}")
+        print(f"Binary data: {self.binary_data}")
+        encoded_data = self.binary_data # ''.join(str(int(bit) ^ int(self.base_bits[i]) ^ int(self.key_bits[i])) for i, bit in enumerate(self.binary_data))
         total_bits = len(encoded_data)
         start_time = time.time()
 
@@ -87,23 +89,34 @@ class BB84Protocol:
         with tqdm(total=total_bits, desc="Processing bits", unit="bit") as pbar:
             simulator = AerSimulator.from_backend(self.device_backend) if self.noise_model else BasicAer.get_backend("qasm_simulator")
 
+            print(f"Data to send: {self.data}")
+            print(f"Encoded data: {encoded_data}")
+
             for bit in encoded_data:
                 circuit = QuantumCircuit(1, 1)
-                circuit.x(0 if bit == '0' else 1)
+                circuit.x(0) if bit == '1' else circuit.id(0)
                 circuit.barrier()
                 circuit.measure(0, 0)
 
                 result = simulator.run(circuit, shots=self.shots).result() if self.noise_model else execute(circuit, backend=simulator, shots=self.shots).result()
-                res = max(result.get_counts(), key=result.get_counts().get)
-                flipped_result = utils.bit_flipper(res[0])
+                res = max(result.get_counts().keys(), key=result.get_counts().get)
+
+                print(f"Bit: {bit}, Result: {res}")
+
+                flipped_result = res #utils.bit_flipper(res[0])
                 flipped_results.append(flipped_result)
                 pbar.update(1)
 
         end_time = time.time()
         logger.info(f"Time taken: {utils.convert_time(end_time - start_time)}")
 
-        decoded_binary = ''.join(str(int(bit) ^ int(self.base_bits[i]) ^ int(self.key_bits[i])) for i, bit in enumerate(flipped_results))
+        print(f"Flipped results: {flipped_results}")
+        print(''.join(flipped_results))
+
+        decoded_binary = ''.join(flipped_results) #''.join(str(int(bit) ^ int(self.base_bits[i]) ^ int(self.key_bits[i])) for i, bit in enumerate(flipped_results))
+        print(f"Decoded binary: {decoded_binary}")
         decoded_text = c_utils.decompress_data(utils.convert_binary_to_text([decoded_binary[i:i+8] for i in range(0, len(decoded_binary), 8)]), self.compression, logs=True)
+        print(f"Decoded text: {decoded_text}")
 
         logger.info(f"Received data: {decoded_text}")
 
