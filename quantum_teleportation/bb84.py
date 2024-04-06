@@ -137,4 +137,4 @@ class BB84Protocol:
             )
             logger.info(f"Data saved to {self.output_path}")
 
-        return decoded_text, decoded_text == self.data
+            return decoded_text, decoded_text == self.data
