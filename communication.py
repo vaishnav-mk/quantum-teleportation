@@ -2,11 +2,9 @@ import quantum_teleportation.quantum_data_teleporter as qc
 import quantum_teleportation.bb84 as bb84
 
 def main():
-    """
-    Demonstrates the usage of the QuantumDataTeleporter class and BB84 protocol.
-    """
-    protocol_choice = "2"  # input("Choose the protocol (1: Normal Teleporter, 2: BB84): ")
-    text = "a"
+    """Demonstrates the usage of the QuantumDataTeleporter class and BB84 protocol."""
+    protocol_choice = input("Choose the protocol (1: Normal Teleporter, 2: BB84): ")
+    text = "Elevate your curiosity in a vibrant — visually pleasing space."
 
     if protocol_choice == "1":
         # Normal Teleporter
@@ -14,7 +12,7 @@ def main():
         received_data, is_data_match = quantum_comm.run_simulation()
     elif protocol_choice == "2":
         # BB84 Protocol
-        res = bb84.BB84Protocol(text, compression=False, noise_model=True, shots=1, output_path="output")
+        res = bb84.BB84Protocol(text, compression=False, noise_model=True, shots=10, output_path="output")
         received_data, is_data_match = res.run_protocol()
     else:
         print("Invalid choice. Exiting...")
