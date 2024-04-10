@@ -20,8 +20,29 @@ logger = utils.setup_logger("bb84_protocol", level=logging.DEBUG)
 load_dotenv()
 PRIVATE_KEY = os.getenv("PRIVATE_KEY")
 
+if not PRIVATE_KEY:
+    num = random.randint(2000, 2500)
+    logger.warning(
+        f"No private key found in the environment variables. Generating a random key with length: {num}..."
+    )
+    PRIVATE_KEY = q_utils.qrng(num)
+    os.environ["PRIVATE_KEY"] = PRIVATE_KEY
+
+    with open(".env", "a") as f:
+        f.write(f"PRIVATE_KEY={PRIVATE_KEY}")
+
+device_backend = FakeVigo()
+
+
 class BB84Protocol:
-    def __init__(self, data: str, compression: str = "brotli", noise_model=False, shots: int = 1, output_path: str = None) -> None:
+    def __init__(
+        self,
+        data: str,
+        compression: str = "brotli",
+        noise_model=False,
+        shots: int = 1,
+        output_path: str = None,
+    ) -> None:
         """
         Initializes the BB84Protocol object.
 
@@ -67,7 +88,7 @@ class BB84Protocol:
         Returns:
             str: A string of random bits.
         """
-        return ''.join(str(random.randint(0, 1)) for _ in range(length))
+        return "".join(str(random.randint(0, 1)) for _ in range(length))
 
     def run_protocol(self) -> tuple[str, bool]:
         """
@@ -78,7 +99,9 @@ class BB84Protocol:
         """
         print(f"Data to send: {self.data}")
         print(f"Binary data: {self.binary_data}")
-        encoded_data = self.binary_data # ''.join(str(int(bit) ^ int(self.base_bits[i]) ^ int(self.key_bits[i])) for i, bit in enumerate(self.binary_data))
+        encoded_data = (
+            self.binary_data
+        )
         total_bits = len(encoded_data)
         start_time = time.time()
 
@@ -87,23 +110,31 @@ class BB84Protocol:
         flipped_results = []
 
         with tqdm(total=total_bits, desc="Processing bits", unit="bit") as pbar:
-            simulator = AerSimulator.from_backend(self.device_backend) if self.noise_model else BasicAer.get_backend("qasm_simulator")
+            simulator = (
+                AerSimulator.from_backend(self.device_backend)
+                if self.noise_model
+                else BasicAer.get_backend("qasm_simulator")
+            )
 
             print(f"Data to send: {self.data}")
             print(f"Encoded data: {encoded_data}")
 
             for bit in encoded_data:
                 circuit = QuantumCircuit(1, 1)
-                circuit.x(0) if bit == '1' else circuit.id(0)
+                circuit.x(0) if bit == "1" else circuit.id(0)
                 circuit.barrier()
                 circuit.measure(0, 0)
 
-                result = simulator.run(circuit, shots=self.shots).result() if self.noise_model else execute(circuit, backend=simulator, shots=self.shots).result()
+                result = (
+                    simulator.run(circuit, shots=self.shots).result()
+                    if self.noise_model
+                    else execute(circuit, backend=simulator, shots=self.shots).result()
+                )
                 res = max(result.get_counts().keys(), key=result.get_counts().get)
 
                 print(f"Bit: {bit}, Result: {res}")
 
-                flipped_result = res #utils.bit_flipper(res[0])
+                flipped_result = res
                 flipped_results.append(flipped_result)
                 pbar.update(1)
 
@@ -111,11 +142,17 @@ class BB84Protocol:
         logger.info(f"Time taken: {utils.convert_time(end_time - start_time)}")
 
         print(f"Flipped results: {flipped_results}")
-        print(''.join(flipped_results))
+        print("".join(flipped_results))
 
-        decoded_binary = ''.join(flipped_results) #''.join(str(int(bit) ^ int(self.base_bits[i]) ^ int(self.key_bits[i])) for i, bit in enumerate(flipped_results))
+        decoded_binary = "".join(flipped_results)
         print(f"Decoded binary: {decoded_binary}")
-        decoded_text = c_utils.decompress_data(utils.convert_binary_to_text([decoded_binary[i:i+8] for i in range(0, len(decoded_binary), 8)]), self.compression, logs=True)
+        decoded_text = c_utils.decompress_data(
+            utils.convert_binary_to_text(
+                [decoded_binary[i : i + 8] for i in range(0, len(decoded_binary), 8)]
+            ),
+            self.compression,
+            logs=True,
+        )
         print(f"Decoded text: {decoded_text}")
 
         logger.info(f"Received data: {decoded_text}")
