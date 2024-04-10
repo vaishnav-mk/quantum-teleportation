@@ -4,8 +4,9 @@ import quantum_teleportation.bb84 as bb84
 def main():
     """Demonstrates the usage of the QuantumDataTeleporter class and BB84 protocol."""
     protocol_choice = input("Choose the protocol (1: Normal Teleporter, 2: BB84): ")
-    text = "Elevate your curiosity in a vibrant — visually pleasing space."
 
+    text = "Elevate your tech journey at SRM Next Tech Lab — where innovation meets collaboration. Dive into specialized domains, experiment freely, and fuel your curiosity in — a vibrant, visually pleasing space. Join us now!"
+    
     if protocol_choice == "1":
         # Normal Teleporter
         quantum_comm = qc.QuantumDataTeleporter(text_to_send=text, shots=1, noise_model=True)
