@@ -4,14 +4,13 @@ import logging
 import time
 from tqdm import tqdm
 from dotenv import load_dotenv
+from qiskit import QuantumCircuit, BasicAer, execute
+from qiskit_aer import AerSimulator
+from qiskit.providers.fake_provider import FakeVigo
 
 import quantum_teleportation.utils as utils
 import quantum_teleportation.compression_utils as c_utils
 import quantum_teleportation.qiskit_utils as q_utils
-
-from qiskit import QuantumCircuit, BasicAer, execute
-from qiskit_aer import AerSimulator
-from qiskit.providers.fake_provider import FakeVigo
 
 # Setup logger
 logger = utils.setup_logger("bb84_protocol", level=logging.DEBUG)
@@ -39,9 +38,10 @@ class BB84Protocol:
         self,
         data: str,
         compression: str = "brotli",
-        noise_model=False,
-        shots: int = 1,
+        noise_model: bool = False,
+        shots: int = -1,
         output_path: str = None,
+        logs: bool = True,
     ) -> None:
         """
         Initializes the BB84Protocol object.
@@ -50,8 +50,9 @@ class BB84Protocol:
             data (str): The text data to be sent.
             compression (str): Compression method to use: "adaptive", "brotli", or False.
             noise_model (bool): Whether to use a noise model in the simulation.
-            shots (int): Number of shots for the quantum simulation.
+            shots (int): Number of shots for the quantum simulation. Set to -1 to use adaptive shots.
             output_path (str): Path to save the output data.
+            logs (bool): Whether to enable logging.
         """
         self.data = data
         self.compression = compression
@@ -59,6 +60,7 @@ class BB84Protocol:
         self.shots = shots
         self.output_path = output_path
         self.device_backend = FakeVigo()
+        self.logs = logs
 
         self.binary_data = utils.convert_text_to_binary(data)
         self.data_length = len(self.binary_data)
@@ -90,6 +92,47 @@ class BB84Protocol:
         """
         return "".join(str(random.randint(0, 1)) for _ in range(length))
 
+    def calculate_adaptive_shots(
+        self,
+        circuit_complexity: int,
+        text_length: int,
+        confidence_level: float = 0.90,
+        base_shots: int = 250,
+        max_shots: int = 4096,
+    ) -> int:
+        """
+        Calculates the number of shots required based on the circuit complexity, text length, and confidence level.
+
+        Args:
+            text_length (int): Length of the text to be encoded.
+            circuit_complexity (int): Complexity of the quantum circuit.
+            confidence_level (float): Confidence level for the simulation.
+            base_shots (int): Base number of shots for the simulation.
+            max_shots (int): Maximum number of shots for the simulation.
+
+        Returns:
+            int: Number of shots required for the simulation.
+        """
+        additional_shots_complexity = min(
+            circuit_complexity * 5, max_shots - base_shots
+        )   
+        additional_shots_length = min(text_length * 0.1, max_shots - base_shots)
+
+        additional_shots = round(
+            (additional_shots_complexity + additional_shots_length) / 2
+        )
+
+        if confidence_level > 0.90:
+            additional_shots = min(circuit_complexity * 1.5, max_shots - base_shots)
+
+        logger.debug(
+            f"Complexity: {circuit_complexity}, Text Length: {text_length}, Confidence Level: {confidence_level}, Base Shots: {base_shots}, Max Shots: {max_shots}"
+        )
+        logger.debug(f"Additional shots: {additional_shots}")
+        logger.info(f"Total shots: {base_shots + additional_shots}")
+
+        return base_shots + additional_shots
+
     def run_protocol(self) -> tuple[str, bool]:
         """
         Runs the BB84 protocol simulation.
@@ -99,13 +142,17 @@ class BB84Protocol:
         """
         print(f"Data to send: {self.data}")
         print(f"Binary data: {self.binary_data}")
-        encoded_data = (
-            self.binary_data
-        )
+        encoded_data = self.binary_data
         total_bits = len(encoded_data)
         start_time = time.time()
 
         logger.info(f"Running simulation with {total_bits} bits...")
+
+        if self.shots == -1:
+            self.shots = self.calculate_adaptive_shots(
+                len(self.binary_data),
+                len(self.binary_data),
+            )
 
         flipped_results = []
 
@@ -174,4 +221,4 @@ class BB84Protocol:
             )
             logger.info(f"Data saved to {self.output_path}")
 
-            return decoded_text, decoded_text == self.data
+        return decoded_text, decoded_text == self.data
