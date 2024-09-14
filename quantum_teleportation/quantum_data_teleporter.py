@@ -229,7 +229,8 @@ class QuantumDataTeleporter:
         ) as pbar:
             simulator = None
             if self.noise_model:
-                simulator = AerSimulator.from_backend(device_backend)
+                backend = NoiseModel.from_backend(device_backend)
+                simulator = AerSimulator(noise_model=backend)
             else:
                 simulator = BasicAer.get_backend("qasm_simulator")
 
