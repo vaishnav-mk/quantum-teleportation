@@ -2,9 +2,9 @@ import quantum_teleportation.utils as utils
 import quantum_teleportation.qiskit_utils as q_utils
 import quantum_teleportation.compression_utils as c_utils
 
-from qiskit import QuantumCircuit, BasicAer, execute
+from qiskit.circuit import QuantumCircuit
 from qiskit_aer import AerSimulator
-from qiskit.providers.fake_provider import FakeVigo
+from qiskit.providers.fake_provider import GenericBackendV2
 from qiskit_aer.noise import NoiseModel
 
 from dotenv import load_dotenv
@@ -31,7 +31,7 @@ if not PRIVATE_KEY:
     with open(".env", "a") as f:
         f.write(f"PRIVATE_KEY={PRIVATE_KEY}")
 
-device_backend = FakeVigo()
+device_backend = GenericBackendV2(num_qubits=6)
 
 
 class QuantumDataTeleporter:
@@ -162,134 +162,217 @@ class QuantumDataTeleporter:
 
         return base_shots + additional_shots
 
-    def create_circuits(self) -> None:
+    # def create_circuits(self) -> None:
+    #     """
+    #     Creates quantum circuits based on the binary text.
+    #     """
+    #     if self.logs:
+    #         logger.debug(f"Creating circuits for {len(self.binary_text)} bits...")
+
+    #     for i in range(len(self.binary_text)):
+    #         self.circuits[i].x(1 if self.binary_text[i] == "1" else 0)
+    #         self.circuits[i].barrier()
+    #         self.circuits[i].h(1)
+    #         self.circuits[i].cx(1, 2)
+    #         self.circuits[i].barrier()
+    #         self.circuits[i].cx(0, 1)
+    #         self.circuits[i].h(0)
+    #         self.circuits[i].barrier()
+    #         self.circuits[i].measure([0, 1], [0, 1])
+    #         self.circuits[i].cx(1, 2)
+    #         self.circuits[i].cz(0, 2)
+    #         self.circuits[i].measure([2], [2])
+
+    #         # ec
+    #         self.circuits[i].barrier()
+    #         self.circuits[i].measure([0, 1, 2], [3, 4, 5])
+    #         self.circuits[i].cx(3, 4)
+    #         self.circuits[i].cx(3, 5)
+    #         self.circuits[i].cx(4, 5)
+    #         self.circuits[i].barrier()
+    #         self.circuits[i].ccx(3, 4, 5)
+    #         self.circuits[i].measure([5], [0])
+
+    def create_circuits(self):
         """
-        Creates quantum circuits based on the binary text.
+        Creates quantum circuits for the BB84 protocol.
         """
+        import numpy as np
+
         if self.logs:
-            logger.debug(f"Creating circuits for {len(self.binary_text)} bits...")
+            logger.debug(f"Creating BB84 circuits for {len(self.binary_text)} bits...")
 
-        for i in range(len(self.binary_text)):
-            self.circuits[i].x(1 if self.binary_text[i] == "1" else 0)
-            self.circuits[i].barrier()
-            self.circuits[i].h(1)
-            self.circuits[i].cx(1, 2)
-            self.circuits[i].barrier()
-            self.circuits[i].cx(0, 1)
-            self.circuits[i].h(0)
-            self.circuits[i].barrier()
-            self.circuits[i].measure([0, 1], [0, 1])
-            self.circuits[i].cx(1, 2)
-            self.circuits[i].cz(0, 2)
-            self.circuits[i].measure([2], [2])
+        # Randomly generate Alice's and Bob's bases
+        alice_bases = np.random.choice(["Z", "X"], size=len(self.binary_text))
+        bob_bases = np.random.choice(["Z", "X"], size=len(self.binary_text))
 
-            # ec
-            self.circuits[i].barrier()
-            self.circuits[i].measure([0, 1, 2], [3, 4, 5])
-            self.circuits[i].cx(3, 4)
-            self.circuits[i].cx(3, 5)
-            self.circuits[i].cx(4, 5)
-            self.circuits[i].barrier()
-            self.circuits[i].ccx(3, 4, 5)
-            self.circuits[i].measure([5], [0])
+        self.alice_bases = alice_bases
+        self.bob_bases = bob_bases
+        self.circuits = []
 
-    def run_simulation(self) -> tuple[str, bool]:
+        for i, bit in enumerate(self.binary_text):
+            qc = QuantumCircuit(1, 1)
+
+            # Step 1: Alice prepares the qubit
+            if alice_bases[i] == "X":  # Hadamard basis
+                qc.h(0)
+            if bit == "1":  # Apply X gate for bit 1
+                qc.x(0)
+            qc.barrier()
+
+            # Step 2: Transmission (Eve can interfere here)
+            # This barrier marks where Eve might interact
+
+            # Step 3: Bob measures the qubit
+            if bob_bases[i] == "X":  # Measure in X basis
+                qc.h(0)
+            qc.measure(0, 0)
+
+            self.circuits.append(qc)
+
+        if self.logs:
+            logger.debug(f"BB84 circuits created: {len(self.circuits)}")
+        
+    # def run_simulation(self) -> tuple[str, bool]:
+    #     """
+    #     Runs the quantum simulation.
+
+    #     Args:
+    #         noise_model (NoiseModel, optional): The noise model to apply to the simulation. Defaults to None.
+
+    #     Returns:
+    #         tuple: Tuple containing received data and a boolean indicating data match.
+    #     """
+    #     total_characters = len(self.circuits)
+    #     start_time = time.time()
+
+    #     if self.logs:
+    #         logger.info(f"Running simulation with {total_characters} characters...")
+
+    #     self.shots = (
+    #         self.calculate_adaptive_shots(
+    #             len(self.circuits[0] if self.circuits else 0),
+    #             text_length=len(self.text_to_send),
+    #         )
+    #         if self.shots == -1
+    #         else self.shots
+    #     )
+
+    #     logger.info(
+    #         f"Processing {len(self.text_to_send)} characters ({total_characters} bits)... with {self.shots} {'shots' if self.shots > 1 else 'shot'}. | Noise Model: {self.noise_model}"
+    #     )
+
+    #     flipped_results = []
+
+    #     with tqdm(
+    #         total=total_characters, desc="Processing characters", unit="char"
+    #     ) as pbar:
+    #         simulator = None
+    #         if self.noise_model:
+    #             backend = NoiseModel.from_backend(device_backend)
+    #             simulator = AerSimulator(noise_model=backend)
+    #         else:
+    #             simulator = AerSimulator()
+            
+    #         job = simulator.run(circuits=self.circuits)
+    #         result = job.result()
+    #         counts = result.get_counts()
+
+    #         for result in counts:
+    #             res = max(result, key=result.get)
+
+    #             flipped_result = utils.bit_flipper(res[0])
+    #             flipped_results.append(flipped_result)
+    #             pbar.update(1)
+
+    #     end_time = time.time()
+    #     logger.info(f"Time taken: {utils.convert_time(end_time - start_time)}")
+
+    #     binary_chunks = utils.handle_flipped_results(
+    #         flipped_results=flipped_results, logs=self.logs
+    #     )
+    #     converted_chunks = utils.convert_binary_to_text(binary_chunks)
+
+    #     converted_chunks = c_utils.adaptive_decompression(
+    #         data=converted_chunks
+    #     )
+
+    #     logger.info(f"Received data: {converted_chunks}")
+
+    #     if converted_chunks != self.initial_text:
+    #         logger.warning("Data mismatch.")
+    #         comparison_result = utils.compare_strings(
+    #             self.initial_text, converted_chunks
+    #         )
+    #         logger.warning(
+    #             "Percentage of similarity: %s",
+    #             comparison_result["percentage_match"],
+    #         )
+    #         logger.warning("Sent data:\n%s", comparison_result["marked_string1"])
+    #         logger.warning("Received data:\n%s", comparison_result["marked_string2"])
+    #     else:
+    #         logger.info("Data match.")
+    #         if self.output_path:
+    #             utils.save_data(
+    #                 converted_chunks=converted_chunks,
+    #                 output_path=self.output_path,
+    #                 image_path=self.image_path,
+    #                 data={
+    #                     "time_taken": utils.convert_time(end_time - start_time),
+    #                     "text": self.initial_text,
+    #                     "data_match": converted_chunks == self.initial_text,
+    #                     "private_key": self.private_key,
+    #                     "binary_text": self.binary_text,
+    #                     "flipped_results": flipped_results,
+    #                     "compression": self.compression,
+    #                     "shots": self.shots,
+    #                     "noise_model": self.noise_model,
+    #                 },
+    #             )
+    #             logger.info(f"Data saved to {self.output_path}")
+
+    #     return converted_chunks, converted_chunks == self.initial_text
+
+    def run_simulation(self) -> tuple[list[int], list[int]]:
         """
-        Runs the quantum simulation.
-
-        Args:
-            noise_model (NoiseModel, optional): The noise model to apply to the simulation. Defaults to None.
+        Runs the BB84 quantum simulation and sifts the key.
 
         Returns:
-            tuple: Tuple containing received data and a boolean indicating data match.
+            tuple: Alice's and Bob's sifted keys.
         """
-        total_characters = len(self.circuits)
-        start_time = time.time()
+        if self.logs:
+            logger.info("Running BB84 simulation...")
+
+        simulator = AerSimulator()
+        job = simulator.run(self.circuits, shots=self.shots)
+        counts = job.result().get_counts()
+
+        # Decode Bob's measurement results
+        bob_results = []
+        for count in counts:
+            # Extract the most probable outcome (assuming shots=1)
+            measured_bit = max(count, key=count.get)
+            bob_results.append(int(measured_bit))
+
+        # Sift keys based on matching bases
+        alice_key = []
+        bob_key = []
+        for i in range(len(self.binary_text)):
+            if self.alice_bases[i] == self.bob_bases[i]:  # Bases match
+                alice_key.append(int(self.binary_text[i]))
+                bob_key.append(bob_results[i])
 
         if self.logs:
-            logger.info(f"Running simulation with {total_characters} characters...")
+            logger.info(f"Alice's bases: {self.alice_bases}")
+            logger.info(f"Bob's bases: {self.bob_bases}")
+            logger.info(f"Sifted Alice key: {alice_key}")
+            logger.info(f"Sifted Bob key: {bob_key}")
 
-        self.shots = (
-            self.calculate_adaptive_shots(
-                len(self.circuits[0] if self.circuits else 0),
-                text_length=len(self.text_to_send),
-            )
-            if self.shots == -1
-            else self.shots
-        )
-
-        logger.info(
-            f"Processing {len(self.text_to_send)} characters ({total_characters} bits)... with {self.shots} {'shots' if self.shots > 1 else 'shot'}. | Noise Model: {self.noise_model}"
-        )
-
-        flipped_results = []
-
-        with tqdm(
-            total=total_characters, desc="Processing characters", unit="char"
-        ) as pbar:
-            simulator = None
-            if self.noise_model:
-                backend = NoiseModel.from_backend(device_backend)
-                simulator = AerSimulator(noise_model=backend)
-            else:
-                simulator = BasicAer.get_backend("qasm_simulator")
-
-            for circuit in self.circuits:
-                if self.noise_model:
-                    result = simulator.run(circuit).result()
-                else:
-                    result = execute(circuit, backend=simulator, shots=1).result()
-
-                res = max(result.get_counts(), key=result.get_counts().get)
-
-                flipped_result = utils.bit_flipper(res[0])
-                flipped_results.append(flipped_result)
-                pbar.update(1)
-
-        end_time = time.time()
-        logger.info(f"Time taken: {utils.convert_time(end_time - start_time)}")
-
-        binary_chunks = utils.handle_flipped_results(
-            flipped_results=flipped_results, logs=self.logs
-        )
-        converted_chunks = utils.convert_binary_to_text(binary_chunks)
-
-        converted_chunks = c_utils.adaptive_decompression(
-            data=converted_chunks
-        )
-
-        logger.info(f"Received data: {converted_chunks}")
-
-        if converted_chunks != self.initial_text:
-            logger.warning("Data mismatch.")
-            comparison_result = utils.compare_strings(
-                self.initial_text, converted_chunks
-            )
-            logger.warning(
-                "Percentage of similarity: %s",
-                comparison_result["percentage_match"],
-            )
-            logger.warning("Sent data:\n%s", comparison_result["marked_string1"])
-            logger.warning("Received data:\n%s", comparison_result["marked_string2"])
+        # Check if keys match
+        key_match = alice_key == bob_key
+        if key_match:
+            logger.info("Key exchange successful.")
         else:
-            logger.info("Data match.")
-            if self.output_path:
-                utils.save_data(
-                    converted_chunks=converted_chunks,
-                    output_path=self.output_path,
-                    image_path=self.image_path,
-                    data={
-                        "time_taken": utils.convert_time(end_time - start_time),
-                        "text": self.initial_text,
-                        "data_match": converted_chunks == self.initial_text,
-                        "private_key": self.private_key,
-                        "binary_text": self.binary_text,
-                        "flipped_results": flipped_results,
-                        "compression": self.compression,
-                        "shots": self.shots,
-                        "noise_model": self.noise_model,
-                    },
-                )
-                logger.info(f"Data saved to {self.output_path}")
+            logger.warning("Key mismatch detected. Possible eavesdropper.")
 
-        return converted_chunks, converted_chunks == self.initial_text
+        return alice_key, bob_key

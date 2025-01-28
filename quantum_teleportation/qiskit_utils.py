@@ -1,4 +1,4 @@
-from qiskit import QuantumCircuit, Aer, execute
+from qiskit.circuit import QuantumCircuit
 from qiskit_aer import AerSimulator
 import numpy as np
 import time
