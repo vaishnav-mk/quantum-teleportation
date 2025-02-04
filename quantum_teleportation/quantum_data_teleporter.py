@@ -50,7 +50,6 @@ class QuantumDataTeleporter:
         Initializes the QuantumDataTeleporter object.
 
         Args:
-            separator (str): Separator used for binary encoding.
             shots (int): Number of shots for the quantum simulation.
             file_path (str): Path to the file for reading text data.
             image_path (str): Path to the image for reading text data.
@@ -86,11 +85,9 @@ class QuantumDataTeleporter:
             )
 
         self.image_path = image_path
-
         self.noise_model = noise_model
 
         _binary_text = utils.convert_text_to_binary(self.text_to_send)
-
         self.private_key = PRIVATE_KEY
 
         if self.private_key:
@@ -109,7 +106,6 @@ class QuantumDataTeleporter:
                     self.private_key = self.private_key[: len(_binary_text)]
 
         self.binary_text = _binary_text
-
         self.circuits = [QuantumCircuit(6, 6) for _ in range(len(self.binary_text))]
 
         self.create_circuits()
@@ -140,7 +136,6 @@ class QuantumDataTeleporter:
         Returns:
             int: Number of shots required for the simulation.
         """
-
         additional_shots_complexity = min(
             circuit_complexity * 5, max_shots - base_shots
         )
@@ -161,7 +156,6 @@ class QuantumDataTeleporter:
             logger.info(f"Total shots: {base_shots + additional_shots}")
 
         return base_shots + additional_shots
-
 
     def create_circuits(self):
         """
@@ -202,27 +196,24 @@ class QuantumDataTeleporter:
 
         if self.logs:
             logger.debug(f"BB84 circuits created: {len(self.circuits)}")
-        
 
     def run_simulation(self) -> tuple[list[int], list[int]]:
-        """
-        Runs the BB84 quantum simulation and sifts the key.
-
-        Returns:
-            tuple: Alice's and Bob's sifted keys.
-        """
         if self.logs:
             logger.info("Running BB84 simulation...")
 
         simulator = AerSimulator()
         job = simulator.run(self.circuits, shots=self.shots)
-        counts = job.result().get_counts()
+        result = job.result()
 
-        # Decode Bob's measurement results
+        # Initialize Bob's results list
         bob_results = []
-        for count in counts:
-            # Extract the most probable outcome (assuming shots=1)
-            measured_bit = max(count, key=count.get)
+
+        # Iterate over each circuit's result
+        for idx, circuit in enumerate(self.circuits):
+            # Retrieve counts for the circuit (explicitly reference the circuit or its index)
+            counts = result.get_counts(circuit)
+            # Assume one shot per circuit; get the measured bit
+            measured_bit = max(counts, key=counts.get)
             bob_results.append(int(measured_bit))
 
         # Sift keys based on matching bases
@@ -239,7 +230,6 @@ class QuantumDataTeleporter:
             logger.info(f"Sifted Alice key: {alice_key}")
             logger.info(f"Sifted Bob key: {bob_key}")
 
-        # Check if keys match
         key_match = alice_key == bob_key
         if key_match:
             logger.info("Key exchange successful.")
