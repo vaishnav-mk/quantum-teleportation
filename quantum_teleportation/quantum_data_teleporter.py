@@ -91,12 +91,12 @@ class QuantumDataTeleporter:
         self.private_key = PRIVATE_KEY
 
         if self.private_key:
-            if len(self.private_key) != len(self.text_to_send):
+            if len(self.private_key) != len(_binary_text):
                 logger.warning(
-                    "Private key length does not match text length. Adjusting..."
+                    "Private key length does not match binary text length. Adjusting..."
                 )
                 if len(self.private_key) < len(_binary_text):
-                    logger.warning("Private key length is less than text length.")
+                    logger.warning("Private key length is less than binary text length.")
                     # Increase the private key length to match the binary text length
                     while len(self.private_key) < len(_binary_text):
                         self.private_key += self.private_key
@@ -105,15 +105,15 @@ class QuantumDataTeleporter:
                     # Truncate the private key if it's longer than the binary text length
                     self.private_key = self.private_key[: len(_binary_text)]
 
-        self.binary_text = _binary_text
-        self.circuits = [QuantumCircuit(6, 6) for _ in range(len(self.binary_text))]
+            self.binary_text = _binary_text
+            self.circuits = [QuantumCircuit(6, 6) for _ in range(len(self.binary_text))]
 
-        self.create_circuits()
+            self.create_circuits()
 
-        if self.logs and not self.image_path:
-            logger.info(f"Text to send: {self.initial_text}")
-            logger.info(f"Binary text: {self.binary_text}")
-            logger.debug(f"Circuit count: {len(self.circuits)}")
+            if self.logs and not self.image_path:
+                logger.info(f"Text to send: {self.initial_text}")
+                logger.info(f"Binary text: {self.binary_text}")
+                logger.debug(f"Circuit count: {len(self.circuits)}")
 
     def calculate_adaptive_shots(
         self,
@@ -178,17 +178,17 @@ class QuantumDataTeleporter:
             qc = QuantumCircuit(1, 1)
 
             # Step 1: Alice prepares the qubit
-            if alice_bases[i] == "X":  # Hadamard basis
-                qc.h(0)
-            if bit == "1":  # Apply X gate for bit 1
+            if bit == "1":  # Encode bit 1 by applying X gate first
                 qc.x(0)
+            if self.alice_bases[i] == "X":  # Rotate to X basis if chosen
+                qc.h(0)
             qc.barrier()
 
             # Step 2: Transmission (Eve can interfere here)
             # This barrier marks where Eve might interact
 
             # Step 3: Bob measures the qubit
-            if bob_bases[i] == "X":  # Measure in X basis
+            if self.bob_bases[i] == "X":  # Rotate to X basis for measurement
                 qc.h(0)
             qc.measure(0, 0)
 
