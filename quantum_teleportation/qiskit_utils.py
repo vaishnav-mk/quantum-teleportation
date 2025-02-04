@@ -1,6 +1,5 @@
-from qiskit.circuit import QuantumCircuit
+from qiskit.circuit import *
 from qiskit_aer import AerSimulator
-import numpy as np
 import time
 
 def qrng(num_bits: int) -> str:

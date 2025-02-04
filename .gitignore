@@ -4,3 +4,4 @@ test.ipynb
 .env
 output/
 bb84_circuits/
+.venv
