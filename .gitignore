@@ -5,3 +5,5 @@ test.ipynb
 output/
 bb84_circuits/
 .venv
+.DS_Store
+codebase_summary.md
