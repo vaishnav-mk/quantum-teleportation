@@ -39,7 +39,7 @@ def qrng(num_bits: int) -> str:
 
         binary_str += "".join([str(int(key)) for key in counts.keys()])
 
-    print(f"Time taken: {time.time() - start_time}")
+    print(f"Time taken for qRNG: {time.time() - start_time}")
     if len(binary_str) < num_bits:
         binary_str = binary_str.zfill(num_bits)
 

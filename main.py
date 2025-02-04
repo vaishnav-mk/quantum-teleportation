@@ -8,12 +8,12 @@ def main():
 
     # print(f"Sent Data == Received Data: {is_data_match}")
 
-    text = "abvc"
+    text = "A"
     quantum_comm = qc.QuantumDataTeleporter(
-        image_path="data/images/2.png",
+        # image_path="data/images/2.png",
         # file_path="data/files/text.txt",
-        # text_to_send=text,
-        shots=1,
+        text_to_send=text,
+        shots=4096,
         noise_model=False,
         logs=True,
         compression="adaptive",  # compression can be "brotli" or "adaptive" or False

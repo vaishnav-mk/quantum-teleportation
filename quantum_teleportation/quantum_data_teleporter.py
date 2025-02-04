@@ -193,15 +193,12 @@ class QuantumDataTeleporter:
             self.circuits[i].ccx(3, 4, 5)
             self.circuits[i].measure([5], [0])
 
-    def run_simulation(self) -> tuple[str, bool]:
+    def run_simulation(self) -> tuple[str, bool, dict]:
         """
         Runs the quantum simulation.
 
-        Args:
-            noise_model (NoiseModel, optional): The noise model to apply to the simulation. Defaults to None.
-
         Returns:
-            tuple: Tuple containing received data and a boolean indicating data match.
+            tuple: Tuple containing received data, a boolean indicating data match, and additional metadata.
         """
         total_characters = len(self.circuits)
         start_time = time.time()
@@ -238,7 +235,7 @@ class QuantumDataTeleporter:
                 if self.noise_model:
                     result = simulator.run(circuit).result()
                 else:
-                    result = execute(circuit, backend=simulator, shots=1).result()
+                    result = execute(circuit, backend=simulator, shots=self.shots).result()
 
                 res = max(result.get_counts(), key=result.get_counts().get)
 
@@ -292,4 +289,16 @@ class QuantumDataTeleporter:
                 )
                 logger.info(f"Data saved to {self.output_path}")
 
-        return converted_chunks, converted_chunks == self.initial_text
+        data = {
+            "time_taken": utils.convert_time(end_time - start_time),
+            "text": self.initial_text,
+            "data_match": converted_chunks == self.initial_text,
+            "private_key": self.private_key,
+            "binary_text": self.binary_text,
+            "flipped_results": flipped_results,
+            "compression": self.compression,
+            "shots": self.shots,
+            "noise_model": self.noise_model,
+        }
+
+        return converted_chunks, converted_chunks == self.initial_text, data

@@ -3,3 +3,4 @@ saved_graphs/
 test.ipynb
 .env
 output/
+.venv
