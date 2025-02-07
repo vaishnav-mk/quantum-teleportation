@@ -1,17 +1,16 @@
+# File: quantum_teleportation/quantum_data_teleporter.py
+
 import quantum_teleportation.utils as utils
 import quantum_teleportation.qiskit_utils as q_utils
 import quantum_teleportation.compression_utils as c_utils
+import quantum_teleportation.qkd_protocols as qkd
 
 from qiskit.circuit import QuantumCircuit
 from qiskit_aer import AerSimulator
 from qiskit.providers.fake_provider import GenericBackendV2
-from qiskit_aer.noise import NoiseModel
 
 from dotenv import load_dotenv
-import matplotlib.pyplot as plt
-from tqdm import tqdm
 import random
-import time
 import os
 import logging
 
@@ -27,10 +26,10 @@ if not PRIVATE_KEY:
     )
     PRIVATE_KEY = q_utils.qrng(num)
     os.environ["PRIVATE_KEY"] = PRIVATE_KEY
-
     with open(".env", "a") as f:
         f.write(f"PRIVATE_KEY={PRIVATE_KEY}")
 
+# Instantiate a dummy backend (if needed for other purposes)
 device_backend = GenericBackendV2(num_qubits=6)
 
 
@@ -43,7 +42,8 @@ class QuantumDataTeleporter:
         text_to_send: str = None,
         compression: str = "brotli",
         output_path: str = None,
-        noise_model=False,
+        noise_model: bool = False,
+        protocol: str = "bb84",  # Protocol flag: "bb84", "b92", "e91", etc.
         logs: bool = True,
     ) -> None:
         """
@@ -51,25 +51,30 @@ class QuantumDataTeleporter:
 
         Args:
             shots (int): Number of shots for the quantum simulation.
-            file_path (str): Path to the file for reading text data.
-            image_path (str): Path to the image for reading text data.
-            text_to_send (str): Text data to be sent if file_path is not provided.
-            compression (str): Compression method to use: "adaptive", "brotli", or False.
+            file_path (str): Path to a text file.
+            image_path (str): Path to an image file.
+            text_to_send (str): Raw text to be sent (if no file/image is provided).
+            compression (str): Compression method ("adaptive", "brotli", or False).
+            output_path (str): Directory or file path to save output data.
+            noise_model (bool): If True, simulate noise (and trigger an eavesdropper simulation).
+            protocol (str): QKD protocol to use (e.g., "bb84", "b92", "e91").
+            logs (bool): Enable or disable logging.
         """
         if not file_path and not text_to_send and not image_path:
-            raise ValueError(
-                "Either file_path or text_to_send or image_path must be provided."
-            )
+            raise ValueError("Either file_path or text_to_send or image_path must be provided.")
 
         self.shots = shots
         self.logs = logs
-        self.compression = compression
+        self.noise_model = noise_model
+        self.protocol = protocol.lower()
         self.output_path = output_path
 
+        # Read the text from file/image or use the provided text.
         text_to_send = (
             utils.text_from_file(file_path)
             if file_path
-            else utils.image_to_base64(image_path) if image_path else text_to_send
+            else utils.image_to_base64(image_path) if image_path
+            else text_to_send
         )
 
         self.initial_text = text_to_send
@@ -80,34 +85,31 @@ class QuantumDataTeleporter:
         elif not compression:
             self.text_to_send = text_to_send
         else:
-            raise ValueError(
-                "Invalid compression method. Use 'adaptive', 'brotli', or False."
-            )
+            raise ValueError("Invalid compression method. Use 'adaptive', 'brotli', or False.")
 
         self.image_path = image_path
-        self.noise_model = noise_model
 
+        # Convert the text to a binary string.
         _binary_text = utils.convert_text_to_binary(self.text_to_send)
         self.private_key = PRIVATE_KEY
 
+        # Adjust private key length if necessary.
         if self.private_key:
             if len(self.private_key) != len(_binary_text):
-                logger.warning(
-                    "Private key length does not match binary text length. Adjusting..."
-                )
+                logger.warning("Private key length does not match binary text length. Adjusting...")
                 if len(self.private_key) < len(_binary_text):
                     logger.warning("Private key length is less than binary text length.")
-                    # Increase the private key length to match the binary text length
                     while len(self.private_key) < len(_binary_text):
                         self.private_key += self.private_key
                     self.private_key = self.private_key[: len(_binary_text)]
                 else:
-                    # Truncate the private key if it's longer than the binary text length
                     self.private_key = self.private_key[: len(_binary_text)]
 
             self.binary_text = _binary_text
-            self.circuits = [QuantumCircuit(6, 6) for _ in range(len(self.binary_text))]
-
+            # Prepare the quantum circuits, along with randomly chosen bases.
+            self.alice_bases = []
+            self.bob_bases = []
+            self.circuits = []
             self.create_circuits()
 
             if self.logs and not self.image_path:
@@ -115,125 +117,99 @@ class QuantumDataTeleporter:
                 logger.info(f"Binary text: {self.binary_text}")
                 logger.debug(f"Circuit count: {len(self.circuits)}")
 
-    def calculate_adaptive_shots(
-        self,
-        circuit_complexity: int,
-        text_length: int,
-        confidence_level: float = 0.90,
-        base_shots: int = 250,
-        max_shots: int = 4096,
-    ) -> int:
-        """
-        Calculates the number of shots required based on the circuit complexity, text length, and confidence level.
-
-        Args:
-            text_length (int): Length of the text to be encoded.
-            circuit_complexity (int): Complexity of the quantum circuit.
-            confidence_level (float): Confidence level for the simulation.
-            base_shots (int): Base number of shots for the simulation.
-            max_shots (int): Maximum number of shots for the simulation.
-
-        Returns:
-            int: Number of shots required for the simulation.
-        """
-        additional_shots_complexity = min(
-            circuit_complexity * 5, max_shots - base_shots
-        )
-        additional_shots_length = min(text_length * 0.1, max_shots - base_shots)
-
-        additional_shots = round(
-            (additional_shots_complexity + additional_shots_length) / 2
-        )
-
-        if confidence_level > 0.90:
-            additional_shots = min(circuit_complexity * 1.5, max_shots - base_shots)
-
-        if self.logs:
-            logger.debug(
-                f"Complexity: {circuit_complexity}, Text Length: {text_length}, Confidence Level: {confidence_level}, Base Shots: {base_shots}, Max Shots: {max_shots}"
-            )
-            logger.debug(f"Additional shots: {additional_shots}")
-            logger.info(f"Total shots: {base_shots + additional_shots}")
-
-        return base_shots + additional_shots
-
     def create_circuits(self):
         """
-        Creates quantum circuits for the BB84 protocol.
+        Creates quantum circuits for each bit in the binary text according to BB84.
         """
         import numpy as np
 
         if self.logs:
             logger.debug(f"Creating BB84 circuits for {len(self.binary_text)} bits...")
 
-        # Randomly generate Alice's and Bob's bases
-        alice_bases = np.random.choice(["Z", "X"], size=len(self.binary_text))
-        bob_bases = np.random.choice(["Z", "X"], size=len(self.binary_text))
-
-        self.alice_bases = alice_bases
-        self.bob_bases = bob_bases
         self.circuits = []
+        # Randomly choose bases for Alice and Bob.
+        self.alice_bases = np.random.choice(["Z", "X"], size=len(self.binary_text))
+        self.bob_bases = np.random.choice(["Z", "X"], size=len(self.binary_text))
 
         for i, bit in enumerate(self.binary_text):
             qc = QuantumCircuit(1, 1)
-
-            # Step 1: Alice prepares the qubit
-            if bit == "1":  # Encode bit 1 by applying X gate first
+            # Alice encodes the bit.
+            if bit == "1":
                 qc.x(0)
-            if self.alice_bases[i] == "X":  # Rotate to X basis if chosen
+            if self.alice_bases[i] == "X":
                 qc.h(0)
             qc.barrier()
-
-            # Step 2: Transmission (Eve can interfere here)
-            # This barrier marks where Eve might interact
-
-            # Step 3: Bob measures the qubit
-            if self.bob_bases[i] == "X":  # Rotate to X basis for measurement
+            # Bob's measurement.
+            if self.bob_bases[i] == "X":
                 qc.h(0)
             qc.measure(0, 0)
-
             self.circuits.append(qc)
 
         if self.logs:
             logger.debug(f"BB84 circuits created: {len(self.circuits)}")
 
-    def run_simulation(self) -> tuple[list[int], list[int]]:
+    def run_simulation(self) -> tuple:
+        """
+        Runs the quantum simulation and then processes the key using the chosen QKD protocol.
+
+        Returns:
+            tuple: The final processed keys for Alice and Bob.
+        """
         if self.logs:
             logger.info("Running BB84 simulation...")
 
-        simulator = AerSimulator()
+        # Setup the simulator with or without noise.
+        if self.noise_model:
+            from qiskit_aer.noise import NoiseModel, depolarizing_error
+            one_qubit_error = depolarizing_error(0.01, 1)
+            noise_model = NoiseModel()
+            for gate in ["u1", "u2", "u3", "h", "x"]:
+                noise_model.add_all_qubit_quantum_error(one_qubit_error, gate)
+            simulator = AerSimulator(noise_model=noise_model)
+        else:
+            simulator = AerSimulator()
+
         job = simulator.run(self.circuits, shots=self.shots)
         result = job.result()
 
-        # Initialize Bob's results list
+        # Retrieve measurement results from Bob.
         bob_results = []
-
-        # Iterate over each circuit's result
         for idx, circuit in enumerate(self.circuits):
-            # Retrieve counts for the circuit (explicitly reference the circuit or its index)
             counts = result.get_counts(circuit)
-            # Assume one shot per circuit; get the measured bit
             measured_bit = max(counts, key=counts.get)
             bob_results.append(int(measured_bit))
 
-        # Sift keys based on matching bases
-        alice_key = []
-        bob_key = []
-        for i in range(len(self.binary_text)):
-            if self.alice_bases[i] == self.bob_bases[i]:  # Bases match
-                alice_key.append(int(self.binary_text[i]))
-                bob_key.append(bob_results[i])
+        # Instead of pre-sifting here, pass the complete raw keys.
+        raw_alice_key = [int(bit) for bit in self.binary_text]
+        raw_bob_key = bob_results
 
         if self.logs:
-            logger.info(f"Alice's bases: {self.alice_bases}")
-            logger.info(f"Bob's bases: {self.bob_bases}")
-            logger.info(f"Sifted Alice key: {alice_key}")
-            logger.info(f"Sifted Bob key: {bob_key}")
+            logger.info(f"Raw Alice key: {raw_alice_key}")
+            logger.info(f"Raw Bob key: {raw_bob_key}")
 
-        key_match = alice_key == bob_key
-        if key_match:
-            logger.info("Key exchange successful.")
+        # Process the keys using the selected QKD protocol.
+        if self.protocol == "bb84":
+            protocol_processor = qkd.BB84Protocol(
+                alice_key=raw_alice_key,
+                bob_key=raw_bob_key,
+                alice_bases=self.alice_bases,
+                bob_bases=self.bob_bases,
+                eavesdrop=self.noise_model,  # When noise_model is True, simulate Eve's attack.
+                logs=self.logs,
+            )
+            final_alice_key, final_bob_key = protocol_processor.process()
+        elif self.protocol == "b92":
+            raise NotImplementedError("B92 protocol not yet implemented.")
+        elif self.protocol == "e91":
+            raise NotImplementedError("E91 protocol not yet implemented.")
         else:
-            logger.warning("Key mismatch detected. Possible eavesdropper.")
+            raise ValueError("Unsupported protocol selected.")
 
-        return alice_key, bob_key
+        keys_match = (final_alice_key == final_bob_key)
+        if self.logs:
+            if keys_match:
+                logger.info("Final key exchange successful!")
+            else:
+                logger.warning("Final keys do not match. Security may be compromised.")
+
+        return final_alice_key, final_bob_key
