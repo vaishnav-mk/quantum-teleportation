@@ -1,9 +1,8 @@
-# File: quantum_teleportation/quantum_data_teleporter.py
-
 import quantum_teleportation.utils as utils
 import quantum_teleportation.qiskit_utils as q_utils
 import quantum_teleportation.compression_utils as c_utils
 import quantum_teleportation.qkd_protocols as qkd
+from . import cascade_correction as cc
 
 from qiskit.circuit import QuantumCircuit
 from qiskit_aer import AerSimulator
@@ -149,16 +148,10 @@ class QuantumDataTeleporter:
             logger.debug(f"BB84 circuits created: {len(self.circuits)}")
 
     def run_simulation(self) -> tuple:
-        """
-        Runs the quantum simulation and then processes the key using the chosen QKD protocol.
-
-        Returns:
-            tuple: The final processed keys for Alice and Bob.
-        """
         if self.logs:
             logger.info("Running BB84 simulation...")
 
-        # Setup the simulator with or without noise.
+        # Setup simulator with or without noise.
         if self.noise_model:
             from qiskit_aer.noise import NoiseModel, depolarizing_error
             one_qubit_error = depolarizing_error(0.01, 1)
@@ -172,14 +165,14 @@ class QuantumDataTeleporter:
         job = simulator.run(self.circuits, shots=self.shots)
         result = job.result()
 
-        # Retrieve measurement results from Bob.
+        # Get measurement results.
         bob_results = []
         for idx, circuit in enumerate(self.circuits):
             counts = result.get_counts(circuit)
             measured_bit = max(counts, key=counts.get)
             bob_results.append(int(measured_bit))
 
-        # Instead of pre-sifting here, pass the complete raw keys.
+        # Pass complete raw keys (bitwise conversion of self.binary_text) to the Cascade routine.
         raw_alice_key = [int(bit) for bit in self.binary_text]
         raw_bob_key = bob_results
 
@@ -187,17 +180,13 @@ class QuantumDataTeleporter:
             logger.info(f"Raw Alice key: {raw_alice_key}")
             logger.info(f"Raw Bob key: {raw_bob_key}")
 
-        # Process the keys using the selected QKD protocol.
+        # For protocol "bb84", use our new full Cascade reconciliation.
         if self.protocol == "bb84":
-            protocol_processor = qkd.BB84Protocol(
-                alice_key=raw_alice_key,
-                bob_key=raw_bob_key,
-                alice_bases=self.alice_bases,
-                bob_bases=self.bob_bases,
-                eavesdrop=self.noise_model,  # When noise_model is True, simulate Eve's attack.
-                logs=self.logs,
-            )
-            final_alice_key, final_bob_key = protocol_processor.process()
+            # Choose an estimated QBER; here we set it to 0.05 (5%), adjust as needed.
+            qber_estimate = 0.35
+            corrected_bob = cc.cascade_full(raw_alice_key, raw_bob_key, qber_estimate, max_passes=4, confirm_rounds=20)
+            final_alice_key = "".join(str(bit) for bit in raw_alice_key)
+            final_bob_key = "".join(str(bit) for bit in corrected_bob)
         elif self.protocol == "b92":
             raise NotImplementedError("B92 protocol not yet implemented.")
         elif self.protocol == "e91":

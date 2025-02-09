@@ -1,10 +1,10 @@
 import quantum_teleportation.quantum_data_teleporter as qc
 
 def main():
-    text = "Elevate your tech journey at SRM Next Tech Lab — where innovation meets collaboration. Dive into specialized domains, experiment freely, and fuel your curiosity in a vibrant, visually pleasing space. Join us now!"  # Or any text you wish to send.
+    text = "NextTechLab is Goated"
     quantum_comm = qc.QuantumDataTeleporter(
         text_to_send=text,
-        shots=1,
+        shots=10,
         noise_model=True,  # Set to True to enable noise (and eavesdropper simulation).
         logs=True,
         compression="adaptive",  # Options: "adaptive", "brotli", or False.

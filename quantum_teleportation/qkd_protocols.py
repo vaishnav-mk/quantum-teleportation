@@ -1,4 +1,3 @@
-# File: quantum_teleportation/qkd_protocols.py
 
 import hashlib
 import logging
